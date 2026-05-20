@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../auth/data/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -24,7 +23,10 @@ class HomeScreen extends StatelessWidget {
         future: authService.getCurrentUserData(),
         builder: (context, snapshot) {
           final data = snapshot.data?.data();
-          final nombre = data?['nombre'] ?? authService.currentUser?.displayName ?? 'Usuario';
+          final nombre =
+              data?['nombre'] ??
+              authService.currentUser?.displayName ??
+              'Usuario';
           final rol = data?['rol'] ?? 'Sin rol';
 
           return ListView(
@@ -41,19 +43,37 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Bienvenido, $nombre',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 8),
                     Text('Rol: $rol'),
                     const SizedBox(height: 18),
-                    const Text('Base conectada con Firebase Authentication y Cloud Firestore.'),
+                    const Text(
+                      'Base conectada con Firebase Authentication y Cloud Firestore.',
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 18),
-              const _ModuleCard(icon: Icons.point_of_sale_rounded, title: 'Ventas', subtitle: 'Próximo módulo'),
-              const _ModuleCard(icon: Icons.inventory_2_rounded, title: 'Productos', subtitle: 'Próximo módulo'),
-              const _ModuleCard(icon: Icons.people_alt_rounded, title: 'Clientes', subtitle: 'Próximo módulo'),
+              _ModuleCard(
+                icon: Icons.point_of_sale_rounded,
+                title: 'Ventas',
+                subtitle: 'Próximo módulo',
+                onTap: () {}, // Dejar vacío si aún no está implementado
+              ),
+              _ModuleCard(
+                icon: Icons.inventory_2_rounded,
+                title: 'Productos',
+                subtitle: 'Gestionar catálogo',
+                onTap: () => Navigator.pushNamed(context, '/products'),
+              ),
+              _ModuleCard(
+                icon: Icons.people_alt_rounded,
+                title: 'Clientes',
+                subtitle: 'Próximo módulo',
+                onTap: () {}, // Dejar vacío si aún no está implementado
+              ),
             ],
           );
         },
@@ -63,11 +83,17 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _ModuleCard extends StatelessWidget {
-  const _ModuleCard({required this.icon, required this.title, required this.subtitle});
+  const _ModuleCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +107,7 @@ class _ModuleCard extends StatelessWidget {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
     );
   }
