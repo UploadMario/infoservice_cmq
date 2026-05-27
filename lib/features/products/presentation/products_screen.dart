@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:infoservice_cmq/features/products/data/product_service.dart';
 import 'package:infoservice_cmq/features/products/data/models/product_model.dart';
+import 'product_form_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -18,21 +20,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
   double _minPrice = 0;
   double _maxPrice = 10000;
   final TextEditingController _searchController = TextEditingController();
+  StreamSubscription? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _subscription = _productService.getProducts().listen(
+      (products) {
+        if (!mounted) return;
+        setState(() {
+          _products = products;
+          _filteredProducts = products;
+          _applyFilters();
+        });
+      },
+      onError: (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar productos: $error')),
+        );
+      },
+    );
   }
 
-  Future<void> _loadProducts() async {
-    _productService.getProducts().listen((products) {
-      setState(() {
-        _products = products;
-        _filteredProducts = products;
-        _applyFilters();
-      });
-    });
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _applyFilters() {
@@ -53,6 +68,51 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
   }
 
+  Future<void> _deleteProduct(ProductModel product) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar producto'),
+        content: Text('¿Desactivar "${product.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _productService.deactivateProduct(product.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${product.name}" desactivado')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _openForm([ProductModel? product]) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductFormScreen(product: product),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,6 +124,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
             onPressed: _showFilterDialog,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openForm(),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -85,18 +149,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: _filteredProducts.isEmpty
                 ? const Center(child: Text('No hay productos disponibles.'))
                 : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio:
-                          0.7, // Ajusta la proporción para evitar desbordamiento vertical
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.6,
                     ),
                     itemCount: _filteredProducts.length,
                     itemBuilder: (context, index) {
                       final product = _filteredProducts[index];
-                      return _ProductCard(product: product);
+                      return _ProductCard(
+                        product: product,
+                        onEdit: () => _openForm(product),
+                        onDelete: () => _deleteProduct(product),
+                      );
                     },
                   ),
           ),
@@ -106,8 +174,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _showFilterDialog() {
-    // Obtener nombres únicos de categorías y marcas
-    final categoryNames = _products.map((p) => p.categoryName).toSet().toList();
+    final categoryNames =
+        _products.map((p) => p.categoryName).toSet().toList();
     final brandNames = _products.map((p) => p.brandName).toSet().toList();
 
     showDialog(
@@ -188,110 +256,128 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _ProductCard({required this.product});
+  const _ProductCard({
+    required this.product,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagen (espacio reservado)
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
               color: Colors.grey[200],
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.image_not_supported,
-                color: Colors.grey,
-                size: 40,
-              ),
+              child: product.imageUrl.isNotEmpty
+                  ? Image.network(
+                      product.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, e, s) => _imagePlaceholder(),
+                    )
+                  : _imagePlaceholder(),
             ),
           ),
-          // Contenido con padding y ScrollView para evitar overflow
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nombre del producto (máximo 2 líneas)
                   Text(
                     product.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14, // Reducido para evitar desbordamiento
+                      fontSize: 13,
                     ),
-                    maxLines: 2, // Límites a 2 líneas
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  // Precio
+                  const SizedBox(height: 2),
                   Text(
                     'S/. ${product.price.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Colors.green,
                       fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  // Stock
+                  const SizedBox(height: 2),
                   Text(
                     'Stock: ${product.stock}',
-                    style: const TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
                   ),
-                  const SizedBox(height: 8),
-                  // Categoría (con Icon y texto en una línea)
-                  Row(
-                    children: [
-                      const Icon(Icons.category, size: 16, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        // <-- Expandido para evitar overflow
-                        child: Text(
-                          product.categoryName,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  const Spacer(),
+                  if (product.categoryName.isNotEmpty ||
+                      product.brandName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: [
+                          if (product.categoryName.isNotEmpty)
+                            _buildChip(product.categoryName, Colors.blue),
+                          if (product.brandName.isNotEmpty)
+                            _buildChip(product.brandName, Colors.orange),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // Marca (con Icon y texto en una línea)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.branding_watermark,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        // <-- Expandido para evitar overflow
-                        child: Text(
-                          product.brandName,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
           ),
+          Divider(height: 1, color: Colors.grey[300]),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: onEdit,
+                tooltip: 'Editar',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18,
+                    color: Colors.red),
+                onPressed: onDelete,
+                tooltip: 'Eliminar',
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return const Center(
+      child: Icon(Icons.image_outlined, color: Colors.grey, size: 32),
+    );
+  }
+
+  Widget _buildChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          color: color,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

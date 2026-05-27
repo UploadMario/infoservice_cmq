@@ -41,6 +41,9 @@ class ProductService {
                 }
               }
 
+              final creadoEn = productData['creado_en'];
+              final actualizadoEn = productData['actualizado_en'];
+
               return ProductModel(
                 id: doc.id,
                 name: productData['nombre'] ?? '',
@@ -52,9 +55,12 @@ class ProductService {
                 stock: productData['stock'] ?? 0,
                 imageUrl: productData['imagen_url'] ?? '',
                 isActive: productData['estado'] == 'activo',
-                createdAt: (productData['creado_en'] as Timestamp).toDate(),
-                updatedAt: (productData['actualizado_en'] as Timestamp)
-                    .toDate(),
+                createdAt: creadoEn is Timestamp
+                    ? creadoEn.toDate()
+                    : DateTime.now(),
+                updatedAt: actualizadoEn is Timestamp
+                    ? actualizadoEn.toDate()
+                    : DateTime.now(),
               );
             }),
           );
@@ -74,6 +80,8 @@ class ProductService {
             snapshot.docs.map((doc) async {
               final productData = doc.data();
               final brandId = productData['marca'] ?? '';
+              final creadoEn = productData['creado_en'];
+              final actualizadoEn = productData['actualizado_en'];
 
               // Obtener nombre de la marca
               String brandName = '';
@@ -93,14 +101,17 @@ class ProductService {
                 brandId: brandId,
                 categoryId: categoryId,
                 brandName: brandName,
-                categoryName: '', // Opcional: obtener nombre de categoría
+                categoryName: '',
                 price: (productData['precio'] ?? 0).toDouble(),
                 stock: productData['stock'] ?? 0,
                 imageUrl: productData['imagen_url'] ?? '',
                 isActive: productData['estado'] == 'activo',
-                createdAt: (productData['creado_en'] as Timestamp).toDate(),
-                updatedAt: (productData['actualizado_en'] as Timestamp)
-                    .toDate(),
+                createdAt: creadoEn is Timestamp
+                    ? creadoEn.toDate()
+                    : DateTime.now(),
+                updatedAt: actualizadoEn is Timestamp
+                    ? actualizadoEn.toDate()
+                    : DateTime.now(),
               );
             }),
           );
@@ -120,6 +131,8 @@ class ProductService {
             snapshot.docs.map((doc) async {
               final productData = doc.data();
               final categoryId = productData['categoria'] ?? '';
+              final creadoEn = productData['creado_en'];
+              final actualizadoEn = productData['actualizado_en'];
 
               // Obtener nombre de la categoría
               String categoryName = '';
@@ -138,15 +151,18 @@ class ProductService {
                 name: productData['nombre'] ?? '',
                 brandId: brandId,
                 categoryId: categoryId,
-                brandName: '', // Opcional: obtener nombre de marca
+                brandName: '',
                 categoryName: categoryName,
                 price: (productData['precio'] ?? 0).toDouble(),
                 stock: productData['stock'] ?? 0,
                 imageUrl: productData['imagen_url'] ?? '',
                 isActive: productData['estado'] == 'activo',
-                createdAt: (productData['creado_en'] as Timestamp).toDate(),
-                updatedAt: (productData['actualizado_en'] as Timestamp)
-                    .toDate(),
+                createdAt: creadoEn is Timestamp
+                    ? creadoEn.toDate()
+                    : DateTime.now(),
+                updatedAt: actualizadoEn is Timestamp
+                    ? actualizadoEn.toDate()
+                    : DateTime.now(),
               );
             }),
           );
@@ -171,6 +187,8 @@ class ProductService {
               final productData = doc.data();
               final brandId = productData['marca'] ?? '';
               final categoryId = productData['categoria'] ?? '';
+              final creadoEn = productData['creado_en'];
+              final actualizadoEn = productData['actualizado_en'];
 
               // Obtener nombres de marca y categoría
               String brandName = '';
@@ -205,13 +223,78 @@ class ProductService {
                 stock: productData['stock'] ?? 0,
                 imageUrl: productData['imagen_url'] ?? '',
                 isActive: productData['estado'] == 'activo',
-                createdAt: (productData['creado_en'] as Timestamp).toDate(),
-                updatedAt: (productData['actualizado_en'] as Timestamp)
-                    .toDate(),
+                createdAt: creadoEn is Timestamp
+                    ? creadoEn.toDate()
+                    : DateTime.now(),
+                updatedAt: actualizadoEn is Timestamp
+                    ? actualizadoEn.toDate()
+                    : DateTime.now(),
               );
             }),
           );
           return products;
         });
+  }
+
+  // --- CRUD Operations ---
+
+  Future<void> addProduct({
+    required String name,
+    required String brandId,
+    required String categoryId,
+    required double price,
+    required int stock,
+    required String imageUrl,
+  }) async {
+    await _firestore.collection('productos').add({
+      'nombre': name,
+      'marca': brandId,
+      'categoria': categoryId,
+      'precio': price,
+      'stock': stock,
+      'imagen_url': imageUrl,
+      'estado': 'activo',
+      'creado_en': FieldValue.serverTimestamp(),
+      'actualizado_en': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateProduct({
+    required String id,
+    required String name,
+    required String brandId,
+    required String categoryId,
+    required double price,
+    required int stock,
+    required String imageUrl,
+  }) async {
+    await _firestore.collection('productos').doc(id).update({
+      'nombre': name,
+      'marca': brandId,
+      'categoria': categoryId,
+      'precio': price,
+      'stock': stock,
+      'imagen_url': imageUrl,
+      'actualizado_en': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deactivateProduct(String id) async {
+    await _firestore.collection('productos').doc(id).update({
+      'estado': 'inactivo',
+      'actualizado_en': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // --- Reference Data for Forms ---
+
+  Future<List<Map<String, dynamic>>> getBrandsList() async {
+    final snapshot = await _firestore.collection('marcas').get();
+    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getCategoriesList() async {
+    final snapshot = await _firestore.collection('categorias_nivel3').get();
+    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
   }
 }
