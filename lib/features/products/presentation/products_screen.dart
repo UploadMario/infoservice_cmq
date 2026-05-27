@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:infoservice_cmq/features/products/data/product_service.dart';
 import 'package:infoservice_cmq/features/products/data/models/product_model.dart';
+import 'package:infoservice_cmq/features/cart/data/cart_service.dart';
+import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart';
+import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
 import 'product_form_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -113,12 +116,37 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  void _addToCart(ProductModel product) {
+    final error = CartService.instance.addItem(product);
+    if (error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
+      return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${product.name}" agregado al carrito')),
+      );
+    }
+  }
+
+  void _openCart() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CartScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Productos'),
         actions: [
+          CartBadgeIcon(onTap: _openCart),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
@@ -162,6 +190,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       final product = _filteredProducts[index];
                       return _ProductCard(
                         product: product,
+                        onAddToCart: () => _addToCart(product),
                         onEdit: () => _openForm(product),
                         onDelete: () => _deleteProduct(product),
                       );
@@ -256,11 +285,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
+  final VoidCallback onAddToCart;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ProductCard({
     required this.product,
+    required this.onAddToCart,
     required this.onEdit,
     required this.onDelete,
   });
@@ -338,18 +369,29 @@ class _ProductCard extends StatelessWidget {
           ),
           Divider(height: 1, color: Colors.grey[300]),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: onEdit,
-                tooltip: 'Editar',
+                icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
+                onPressed: product.stock > 0 ? onAddToCart : null,
+                tooltip: product.stock > 0 ? 'Agregar al carrito' : 'Sin stock',
+                color: product.stock > 0 ? Colors.blue : Colors.grey,
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18,
-                    color: Colors.red),
-                onPressed: onDelete,
-                tooltip: 'Eliminar',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    onPressed: onEdit,
+                    tooltip: 'Editar',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18,
+                        color: Colors.red),
+                    onPressed: onDelete,
+                    tooltip: 'Eliminar',
+                  ),
+                ],
               ),
             ],
           ),

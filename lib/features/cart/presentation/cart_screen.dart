@@ -1,0 +1,285 @@
+import 'package:flutter/material.dart';
+import '../data/cart_service.dart';
+import '../data/models/cart_item_model.dart';
+import 'confirmation_screen.dart';
+
+class CartScreen extends StatefulWidget {
+  const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  final CartService _cart = CartService.instance;
+  bool _isPurchasing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cart.addListener(_onCartChanged);
+  }
+
+  @override
+  void dispose() {
+    _cart.removeListener(_onCartChanged);
+    super.dispose();
+  }
+
+  void _onCartChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _purchase() async {
+    if (_cart.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar compra'),
+        content: Text(
+          '¿Realizar compra por S/. ${_cart.totalAmount.toStringAsFixed(2)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Comprar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isPurchasing = true);
+    try {
+      final result = await _cart.purchase();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ConfirmationScreen(purchaseData: result),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPurchasing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al realizar compra: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Carrito')),
+      body: _cart.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shopping_cart_outlined, size: 64,
+                      color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('El carrito está vacío',
+                      style: TextStyle(fontSize: 16, color: Colors.grey)),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    itemCount: _cart.items.length,
+                    itemBuilder: (context, index) {
+                      final item = _cart.items[index];
+                      return _CartItemCard(
+                        item: item,
+                        onIncrement: () {
+                          _cart.updateQuantity(
+                              item.product.id, item.quantity + 1);
+                        },
+                        onDecrement: () {
+                          _cart.updateQuantity(
+                              item.product.id, item.quantity - 1);
+                        },
+                        onRemove: () => _cart.removeItem(item.product.id),
+                      );
+                    },
+                  ),
+                ),
+                _buildBottomBar(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    final total = _cart.totalAmount;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16, 10, 16, 10 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Total: S/. ${total.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _isPurchasing ? null : _purchase,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: _isPurchasing ? Colors.green[300] : Colors.green,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _isPurchasing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_cart_checkout, size: 18,
+                            color: Colors.white),
+                        SizedBox(width: 6),
+                        Text('Realizar compra',
+                            style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartItemCard extends StatelessWidget {
+  final CartItemModel item;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final VoidCallback onRemove;
+
+  const _CartItemCard({
+    required this.item,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 64,
+                height: 64,
+                color: Colors.grey[200],
+                child: item.product.imageUrl.isNotEmpty
+                    ? Image.network(
+                        item.product.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, e, s) => const Icon(
+                            Icons.image_outlined, color: Colors.grey),
+                      )
+                    : const Icon(Icons.image_outlined, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'S/. ${item.product.price.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: onDecrement,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.remove_circle_outline, size: 20),
+                  ),
+                ),
+                Text('${item.quantity}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+                GestureDetector(
+                  onTap: onIncrement,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.add_circle_outline, size: 20),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'S/. ${item.subtotal.toStringAsFixed(2)}',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            GestureDetector(
+              onTap: onRemove,
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.delete_outline, size: 20,
+                    color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

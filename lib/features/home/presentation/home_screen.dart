@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth/data/auth_service.dart';
+import '../../cart/presentation/purchase_history_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -95,8 +96,13 @@ class HomeScreen extends StatelessWidget {
               _ModuleCard(
                 icon: Icons.point_of_sale_rounded,
                 title: 'Ventas',
-                subtitle: 'Próximo módulo',
-                onTap: () {}, // Dejar vacío si aún no está implementado
+                subtitle: 'Historial de compras',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PurchaseHistoryScreen(),
+                  ),
+                ),
               ),
               _ModuleCard(
                 icon: Icons.inventory_2_rounded,
