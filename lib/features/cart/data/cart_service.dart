@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,9 @@ class CartService extends ChangeNotifier {
 
   static final CartService instance = CartService._();
 
+  static const double _businessLat = -11.7775086;
+  static const double _businessLng = -75.499446;
+
   final List<CartItemModel> _items = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -18,6 +22,15 @@ class CartService extends ChangeNotifier {
   int get itemCount => _items.fold(0, (total, item) => total + item.quantity);
   double get totalAmount => _items.fold(0.0, (total, item) => total + item.subtotal);
   bool get isEmpty => _items.isEmpty;
+
+  double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
+    const R = 6371000;
+    final dLat = (lat2 - lat1) * pi / 180;
+    final dLng = (lng2 - lng1) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dLng / 2) * sin(dLng / 2);
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
 
   String? addItem(ProductModel product) {
     if (product.stock <= 0) return 'Producto sin stock';
@@ -56,7 +69,7 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> purchase() async {
+  Future<Map<String, dynamic>> purchase(double userLat, double userLng) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No hay sesión activa');
 
@@ -74,6 +87,10 @@ class CartService extends ChangeNotifier {
     }).toList();
 
     final total = totalAmount;
+    final distancia = _haversineDistance(
+      _businessLat, _businessLng, userLat, userLng,
+    );
+    final duracion = (distancia / 10).round();
 
     final compraData = <String, dynamic>{
       'uid': user.uid,
@@ -81,8 +98,15 @@ class CartService extends ChangeNotifier {
       'usuarioCorreo': userData?['correo'] ?? user.email ?? '',
       'total': total,
       'fecha': FieldValue.serverTimestamp(),
-      'estado': 'completado',
+      'estado': 'preparando',
       'productos': productosData,
+      'ubicacionNegocio': GeoPoint(_businessLat, _businessLng),
+      'ubicacionUsuario': GeoPoint(userLat, userLng),
+      'fechaPedido': FieldValue.serverTimestamp(),
+      'fechaInicioEnvio': null,
+      'fechaCompletado': null,
+      'distancia': distancia.round(),
+      'duracion': duracion,
     };
 
     final docRef =
@@ -98,6 +122,12 @@ class CartService extends ChangeNotifier {
 
     clear();
     return result;
+  }
+
+  Future<void> cancelOrder(String orderId) async {
+    await _firestore.collection('historial_compras').doc(orderId).update({
+      'estado': 'cancelado',
+    });
   }
 
   Stream<QuerySnapshot> getPurchaseHistory() {

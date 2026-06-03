@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../home/presentation/home_screen.dart';
+import '../../home/presentation/main_shell.dart';
 import '../data/auth_service.dart';
 import 'login_screen.dart';
 
@@ -19,7 +19,7 @@ class AuthGate extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
-        if (snapshot.hasData) return const HomeScreen();
+        if (snapshot.hasData) return const MainShell();
         return const LoginScreen();
       },
     );

@@ -196,7 +196,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedBrandId,
+                    initialValue: _selectedBrandId,
                     decoration: const InputDecoration(
                       labelText: 'Marca',
                       prefixIcon: Icon(Icons.branding_watermark_outlined),
@@ -215,7 +215,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
+                    initialValue: _selectedCategoryId,
                     decoration: const InputDecoration(
                       labelText: 'Categoría',
                       prefixIcon: Icon(Icons.category_outlined),

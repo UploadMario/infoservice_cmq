@@ -279,11 +279,8 @@ class ProductService {
     });
   }
 
-  Future<void> deactivateProduct(String id) async {
-    await _firestore.collection('productos').doc(id).update({
-      'estado': 'inactivo',
-      'actualizado_en': FieldValue.serverTimestamp(),
-    });
+  Future<void> deleteProduct(String id) async {
+    await _firestore.collection('productos').doc(id).delete();
   }
 
   // --- Reference Data for Forms ---
