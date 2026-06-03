@@ -175,7 +175,7 @@ class _HistoryCard extends StatelessWidget {
                 _statusLabel(estado),
                 style: const TextStyle(
                     fontSize: 11, color: Colors.white)),
-            ),
+              ),
           ],
         ),
         subtitle: Text(
@@ -224,32 +224,65 @@ class _HistoryCard extends StatelessWidget {
           if (onTrack != null || onCancel != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (onCancel != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: TextButton.icon(
-                        onPressed: onCancel,
-                        icon: const Icon(Icons.cancel_outlined, size: 18),
-                        label: const Text('Cancelar'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          visualDensity: VisualDensity.compact,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onCancel != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: InkWell(
+                          onTap: onCancel,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.red.shade400),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.cancel_outlined,
+                                    size: 18, color: Colors.red.shade400),
+                                const SizedBox(width: 4),
+                                Text('Cancelar',
+                                    style: TextStyle(
+                                        color: Colors.red.shade400,
+                                        fontSize: 13)),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  if (onTrack != null)
-                    ElevatedButton.icon(
-                      onPressed: onTrack,
-                      icon: const Icon(Icons.map_outlined, size: 18),
-                      label: const Text('Seguir'),
-                      style: ElevatedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
+                    if (onTrack != null)
+                      InkWell(
+                        onTap: onTrack,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.map_outlined,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 4),
+                              const Text('Seguir',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 13)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],

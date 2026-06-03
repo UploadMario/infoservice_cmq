@@ -103,6 +103,10 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
           final data = jsonDecode(body) as Map<String, dynamic>;
           if (data['code'] == 'Ok') {
             final route = (data['routes'] as List).first as Map<String, dynamic>;
+            final osrmDuration = (route['duration'] as num?)?.toDouble() ?? 0;
+            if (osrmDuration > 0) {
+              _duration = osrmDuration;
+            }
             final geometry = route['geometry'] as Map<String, dynamic>;
             final coords = geometry['coordinates'] as List;
 
@@ -120,8 +124,8 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
       }
     } catch (_) {}
 
-    if (_duration == 0 && _distance > 0) {
-      _duration = _distance / 1.4;
+    if (_duration <= 0 && _distance > 0) {
+      _duration = _distance / 10;
     }
 
     if (mounted) setState(() {});

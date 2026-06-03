@@ -90,7 +90,7 @@ class CartService extends ChangeNotifier {
     final distancia = _haversineDistance(
       _businessLat, _businessLng, userLat, userLng,
     );
-    final duracion = (distancia / 1.4).round();
+    final duracion = (distancia / 10).round();
 
     final compraData = <String, dynamic>{
       'uid': user.uid,
