@@ -5,6 +5,7 @@ import 'package:infoservice_cmq/features/products/data/models/product_model.dart
 import 'package:infoservice_cmq/features/cart/data/cart_service.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
+import 'package:infoservice_cmq/features/favorites/data/favorites_service.dart';
 import 'product_form_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -16,18 +17,22 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final ProductService _productService = ProductService();
+  final FavoritesService _favorites = FavoritesService.instance;
   List<ProductModel> _products = [];
   List<ProductModel> _filteredProducts = [];
   String _selectedCategory = 'Todas';
   String _selectedBrand = 'Todas';
   double _minPrice = 0;
   double _maxPrice = 10000;
+  bool _showFavoritesOnly = false;
   final TextEditingController _searchController = TextEditingController();
   StreamSubscription? _subscription;
 
   @override
   void initState() {
     super.initState();
+    _favorites.init();
+    _favorites.addListener(_onFavoritesChanged);
     _subscription = _productService.getProducts().listen(
       (products) {
         if (!mounted) return;
@@ -49,8 +54,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _favorites.removeListener(_onFavoritesChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _applyFilters() {
@@ -66,7 +76,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
         final matchesSearch = product.name.toLowerCase().contains(
           _searchController.text.toLowerCase(),
         );
-        return matchesCategory && matchesBrand && matchesPrice && matchesSearch;
+        final matchesFavorites =
+            !_showFavoritesOnly || _favorites.isFavorite(product.id);
+        return matchesCategory &&
+            matchesBrand &&
+            matchesPrice &&
+            matchesSearch &&
+            matchesFavorites;
       }).toList();
     });
   }
@@ -76,7 +92,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar producto'),
-        content: Text('¿Desactivar "${product.name}"?'),
+        content: Text('¿Eliminar "${product.name}" permanentemente?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -91,10 +107,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
     if (confirm != true) return;
     try {
-      await _productService.deactivateProduct(product.id);
+      await _productService.deleteProduct(product.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${product.name}" desactivado')),
+          SnackBar(content: Text('"${product.name}" eliminado')),
         );
       }
     } catch (e) {
@@ -148,6 +164,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
         actions: [
           CartBadgeIcon(onTap: _openCart),
           IconButton(
+            icon: Icon(
+              _showFavoritesOnly
+                  ? Icons.favorite
+                  : Icons.favorite_outline_rounded,
+              color: _showFavoritesOnly ? Colors.red : null,
+            ),
+            onPressed: () {
+              setState(() => _showFavoritesOnly = !_showFavoritesOnly);
+              _applyFilters();
+            },
+            tooltip: _showFavoritesOnly
+                ? 'Mostrar todos'
+                : 'Solo favoritos',
+          ),
+          IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
           ),
@@ -190,6 +221,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       final product = _filteredProducts[index];
                       return _ProductCard(
                         product: product,
+                        isFavorite: _favorites.isFavorite(product.id),
+                        onToggleFavorite: () =>
+                            _favorites.toggle(product.id),
                         onAddToCart: () => _addToCart(product),
                         onEdit: () => _openForm(product),
                         onDelete: () => _deleteProduct(product),
@@ -217,7 +251,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   items: ['Todas', ...categoryNames].map((category) {
                     return DropdownMenuItem<String>(
                       value: category,
@@ -232,7 +266,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   decoration: const InputDecoration(labelText: 'Categoría'),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _selectedBrand,
+                  initialValue: _selectedBrand,
                   items: ['Todas', ...brandNames].map((brand) {
                     return DropdownMenuItem<String>(
                       value: brand,
@@ -285,12 +319,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
   final VoidCallback onAddToCart;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ProductCard({
     required this.product,
+    required this.isFavorite,
+    required this.onToggleFavorite,
     required this.onAddToCart,
     required this.onEdit,
     required this.onDelete,
@@ -307,15 +345,39 @@ class _ProductCard extends StatelessWidget {
         children: [
           AspectRatio(
             aspectRatio: 16 / 9,
-            child: Container(
-              color: Colors.grey[200],
-              child: product.imageUrl.isNotEmpty
-                  ? Image.network(
-                      product.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, e, s) => _imagePlaceholder(),
-                    )
-                  : _imagePlaceholder(),
+            child: Stack(
+              children: [
+                Container(
+                  color: Colors.grey[200],
+                  child: product.imageUrl.isNotEmpty
+                      ? Image.network(
+                          product.imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, e, s) => _imagePlaceholder(),
+                        )
+                      : _imagePlaceholder(),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: onToggleFavorite,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 18,
+                        color: isFavorite ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -408,6 +470,7 @@ class _ProductCard extends StatelessWidget {
 
   Widget _buildChip(String label, Color color) {
     return Container(
+      constraints: const BoxConstraints(maxWidth: 120),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -415,6 +478,8 @@ class _ProductCard extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 9,
           color: color,

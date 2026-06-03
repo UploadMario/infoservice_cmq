@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data/cart_service.dart';
 import '../data/models/cart_item_model.dart';
-import 'confirmation_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -55,16 +55,53 @@ class _CartScreenState extends State<CartScreen> {
     if (confirm != true) return;
 
     setState(() => _isPurchasing = true);
+    _cart.removeListener(_onCartChanged);
     try {
-      final result = await _cart.purchase();
+      double userLat = -11.7775086;
+      double userLng = -75.499446;
+
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever &&
+          serviceEnabled) {
+        try {
+          final pos = await Geolocator.getCurrentPosition()
+              .timeout(const Duration(seconds: 10));
+          userLat = pos.latitude;
+          userLng = pos.longitude;
+        } catch (_) {}
+      }
+
+      await _cart.purchase(userLat, userLng);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => ConfirmationScreen(purchaseData: result),
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Compra exitosa')),
+            body: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 80),
+                  SizedBox(height: 16),
+                  Text(
+                    '¡Compra realizada con éxito!',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
     } catch (e) {
+      _cart.addListener(_onCartChanged);
       if (!mounted) return;
       setState(() => _isPurchasing = false);
       ScaffoldMessenger.of(context).showSnackBar(

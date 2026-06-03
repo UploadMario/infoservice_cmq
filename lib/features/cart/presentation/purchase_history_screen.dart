@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../data/cart_service.dart';
+import '../../delivery/presentation/delivery_tracking_screen.dart';
 
 class PurchaseHistoryScreen extends StatelessWidget {
   const PurchaseHistoryScreen({super.key});
@@ -42,8 +43,53 @@ class PurchaseHistoryScreen extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final doc = docs[index];
-              final data = doc.data()! as Map<String, dynamic>;
-              return _HistoryCard(docId: doc.id, data: data);
+              final data = (doc.data() ?? {}) as Map<String, dynamic>;
+              return _HistoryCard(
+                key: ValueKey(doc.id),
+                docId: doc.id,
+                data: data,
+                onTrack: data['estado'] == 'preparando' ||
+                        data['estado'] == 'en_camino'
+                    ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DeliveryTrackingScreen(
+                              orderId: doc.id,
+                              data: data,
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+                onCancel: data['estado'] == 'preparando'
+                    ? () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Cancelar pedido'),
+                            content: const Text(
+                              '¿Estás seguro de cancelar este pedido?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('No'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Sí, cancelar',
+                                    style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await CartService.instance.cancelOrder(doc.id);
+                        }
+                      }
+                    : null,
+              );
             },
           );
         },
@@ -55,8 +101,46 @@ class PurchaseHistoryScreen extends StatelessWidget {
 class _HistoryCard extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
+  final VoidCallback? onTrack;
+  final VoidCallback? onCancel;
 
-  const _HistoryCard({required this.docId, required this.data});
+  const _HistoryCard({
+    super.key,
+    required this.docId,
+    required this.data,
+    this.onTrack,
+    this.onCancel,
+  });
+
+  Color _statusColor(String estado) {
+    switch (estado) {
+      case 'preparando':
+        return Colors.orange;
+      case 'en_camino':
+        return Colors.blue;
+      case 'completado':
+        return Colors.green;
+      case 'cancelado':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statusLabel(String estado) {
+    switch (estado) {
+      case 'preparando':
+        return 'Preparando';
+      case 'en_camino':
+        return 'En camino';
+      case 'completado':
+        return 'Completado';
+      case 'cancelado':
+        return 'Cancelado';
+      default:
+        return estado;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +148,12 @@ class _HistoryCard extends StatelessWidget {
     final total = (data['total'] as num?)?.toDouble() ?? 0;
     final timestamp = data['fecha'] as Timestamp?;
     final fecha = timestamp?.toDate() ?? DateTime.now();
-    final estado = data['estado'] ?? 'completado';
+    final estado = data['estado'] as String? ?? 'completado';
+    final color = _statusColor(estado);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -82,12 +168,13 @@ class _HistoryCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.green,
+                color: color,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(estado,
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.white)),
+              child: Text(
+                _statusLabel(estado),
+                style: const TextStyle(
+                    fontSize: 11, color: Colors.white)),
             ),
           ],
         ),
@@ -98,7 +185,7 @@ class _HistoryCard extends StatelessWidget {
         children: [
           const Divider(),
           ...productos.map((p) {
-            final pMap = p as Map<String, dynamic>;
+            final pMap = p is Map<String, dynamic> ? p : <String, dynamic>{};
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
@@ -110,7 +197,7 @@ class _HistoryCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'S/. ${(pMap['subtotal'] as num).toStringAsFixed(2)}',
+                    'S/. ${((pMap['subtotal'] as num?) ?? 0).toStringAsFixed(2)}',
                     style: const TextStyle(
                         fontWeight: FontWeight.w500, fontSize: 13),
                   ),
@@ -134,6 +221,37 @@ class _HistoryCard extends StatelessWidget {
               ),
             ],
           ),
+          if (onTrack != null || onCancel != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (onCancel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: TextButton.icon(
+                        onPressed: onCancel,
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('Cancelar'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ),
+                  if (onTrack != null)
+                    ElevatedButton.icon(
+                      onPressed: onTrack,
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text('Seguir'),
+                      style: ElevatedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );
