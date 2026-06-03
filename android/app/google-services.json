@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "769976260321",
+    "project_id": "proyecto-moviles-cqm",
+    "storage_bucket": "proyecto-moviles-cqm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:769976260321:android:3875b4cc2b62b19c8849a0",
+        "android_client_info": {
+          "package_name": "com.example.infoservice_cmq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTKM3Dk7sWndzD7yrtfyq6wcpovkDQDxo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:769976260321:android:ca7dbe2e48ad20178849a0",
+        "android_client_info": {
+          "package_name": "com.example.proyecto_moviles_cmq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTKM3Dk7sWndzD7yrtfyq6wcpovkDQDxo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
