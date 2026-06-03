@@ -62,6 +62,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       setState(() {
         _brands = brands;
         _categories = categories;
+        if (_selectedBrandId != null &&
+            !brands.any((b) => b['id'] == _selectedBrandId)) {
+          _selectedBrandId = null;
+        }
+        if (_selectedCategoryId != null &&
+            !categories.any((c) => c['id'] == _selectedCategoryId)) {
+          _selectedCategoryId = null;
+        }
         _isLoadingData = false;
       });
     } catch (e) {
