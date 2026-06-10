@@ -69,7 +69,7 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> purchase(double userLat, double userLng) async {
+  Future<Map<String, dynamic>> purchase(double userLat, double userLng, {String direccion = ''}) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No hay sesión activa');
 
@@ -102,6 +102,7 @@ class CartService extends ChangeNotifier {
       'productos': productosData,
       'ubicacionNegocio': GeoPoint(_businessLat, _businessLng),
       'ubicacionUsuario': GeoPoint(userLat, userLng),
+      'direccion': direccion,
       'fechaPedido': FieldValue.serverTimestamp(),
       'fechaInicioEnvio': null,
       'fechaCompletado': null,

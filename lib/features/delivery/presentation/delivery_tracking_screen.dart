@@ -327,6 +327,14 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
                     'Empaquetando tu pedido...',
                     style: TextStyle(fontSize: 13, color: Colors.grey),
                   ),
+                if (widget.data['direccion'] is String &&
+                    (widget.data['direccion'] as String).isNotEmpty)
+                  Text(
+                    'Entregar en: ${widget.data['direccion']}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),

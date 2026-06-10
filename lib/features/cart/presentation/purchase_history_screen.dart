@@ -178,9 +178,22 @@ class _HistoryCard extends StatelessWidget {
               ),
           ],
         ),
-        subtitle: Text(
-          '${productos.length} producto(s) — S/. ${total.toStringAsFixed(2)}',
-          style: const TextStyle(fontSize: 13),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${productos.length} producto(s) — S/. ${total.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            if (data['direccion'] is String &&
+                (data['direccion'] as String).isNotEmpty)
+              Text(
+                data['direccion'] as String,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
         ),
         children: [
           const Divider(),

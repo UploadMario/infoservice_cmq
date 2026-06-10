@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/cart_service.dart';
 import '../data/models/cart_item_model.dart';
+import 'location_picker_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -59,24 +60,72 @@ class _CartScreenState extends State<CartScreen> {
     try {
       double userLat = -11.7775086;
       double userLng = -75.499446;
+      String direccion = '';
 
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        await Geolocator.requestPermission();
-      }
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (permission != LocationPermission.denied &&
-          permission != LocationPermission.deniedForever &&
-          serviceEnabled) {
-        try {
-          final pos = await Geolocator.getCurrentPosition()
-              .timeout(const Duration(seconds: 10));
-          userLat = pos.latitude;
-          userLng = pos.longitude;
-        } catch (_) {}
+      final useCurrent = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ubicación de entrega'),
+          content: const Text(
+            '¿Tu ubicación actual es donde deseas recibir el pedido?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('No, elegir dirección'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sí, usar mi ubicación'),
+            ),
+          ],
+        ),
+      );
+
+      if (useCurrent == true) {
+        final permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          await Geolocator.requestPermission();
+        }
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (permission != LocationPermission.denied &&
+            permission != LocationPermission.deniedForever &&
+            serviceEnabled) {
+          try {
+            final pos = await Geolocator.getCurrentPosition()
+                .timeout(const Duration(seconds: 10));
+            userLat = pos.latitude;
+            userLng = pos.longitude;
+          } catch (_) {}
+        }
+      } else if (useCurrent == false) {
+        final result = await Navigator.push<Map<String, dynamic>>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LocationPickerScreen(
+              initialLat: userLat,
+              initialLng: userLng,
+            ),
+          ),
+        );
+        if (result == null) {
+          _cart.addListener(_onCartChanged);
+          if (!mounted) return;
+          setState(() => _isPurchasing = false);
+          return;
+        }
+        userLat = result['lat'] as double;
+        userLng = result['lng'] as double;
+        direccion = result['direccion'] as String? ?? '';
+      } else {
+        _cart.addListener(_onCartChanged);
+        if (!mounted) return;
+        setState(() => _isPurchasing = false);
+        return;
       }
 
-      await _cart.purchase(userLat, userLng);
+      await _cart.purchase(userLat, userLng, direccion: direccion);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
