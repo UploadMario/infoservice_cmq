@@ -18,8 +18,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   final _imageUrlController = TextEditingController();
-  final _searchController = TextEditingController();
-  Timer? _searchDebounce;
 
   String? _editingId;
   String? _selectedBrandId;
@@ -29,9 +27,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<Map<String, dynamic>> _brands = [];
   List<Map<String, dynamic>> _categories = [];
   bool _brandsLoaded = false;
-
-  String? _filterBrandId;
-  String? _filterCategoryId;
+  String _currentSection = 'products';
 
   @override
   void initState() {
@@ -47,8 +43,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _priceController.dispose();
     _stockController.dispose();
     _imageUrlController.dispose();
-    _searchController.dispose();
-    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -71,13 +65,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     } catch (e) {
       debugPrint('Error cargando marcas/categorias: $e');
     }
-  }
-
-  String _resolveName(List<Map<String, dynamic>> list, String? id) {
-    if (id == null || id.isEmpty) return '—';
-    final found = list.firstWhere((e) => e['id'] == id,
-        orElse: () => {'nombre': '—'});
-    return found['nombre'] as String;
   }
 
   Future<void> _guardarProducto() async {
@@ -363,7 +350,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestión de Productos'),
+        title: Text(_currentSection == 'products'
+            ? 'Gestión de Productos'
+            : 'Ventas y Ganancias'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -372,181 +361,99 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Text('Productos', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Buscar por nombre...',
-                      prefixIcon: Icon(Icons.search),
-                      isDense: true,
-                      filled: true,
-                    ),
-                    onChanged: (_) {
-                      _searchDebounce?.cancel();
-                      _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                        if (mounted) setState(() {});
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  width: 180,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[400]!),
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.white,
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _filterBrandId,
-                      isDense: true,
-                      isExpanded: true,
-                      hint: const Text('Marca'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Todas')),
-                        ..._brands.map((b) => DropdownMenuItem(
-                              value: b['id'] as String,
-                              child: Text(b['nombre'] as String),
-                            )),
-                      ],
-                      onChanged: (v) => setState(() => _filterBrandId = v),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  width: 180,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[400]!),
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.white,
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _filterCategoryId,
-                      isDense: true,
-                      isExpanded: true,
-                      hint: const Text('Categoría'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Todas')),
-                        ..._categories.map((c) => DropdownMenuItem(
-                              value: c['id'] as String,
-                              child: Text(c['nombre'] as String),
-                            )),
-                      ],
-                      onChanged: (v) => setState(() => _filterCategoryId = v),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(minimumSize: const Size(140, 44)),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Agregar Producto'),
-                  onPressed: () => _showProductForm(),
-                ),
-              ],
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color(0xFF165DFF)),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(Icons.admin_panel_settings,
+                      color: Colors.white, size: 48),
+                  SizedBox(height: 8),
+                  Text('Admin Panel',
+                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            if (_searchController.text.isNotEmpty ||
-                _filterBrandId != null ||
-                _filterCategoryId != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Wrap(
-                  spacing: 6,
-                  children: [
-                    if (_searchController.text.isNotEmpty)
-                      Chip(
-                        label: Text('Buscar: "${_searchController.text}"'),
-                        onDeleted: () {
-                          _searchController.clear();
-                          setState(() {});
-                        },
-                      ),
-                    if (_filterBrandId != null)
-                      Chip(
-                        label: Text('Marca: ${_resolveName(_brands, _filterBrandId)}'),
-                        onDeleted: () => setState(() => _filterBrandId = null),
-                      ),
-                    if (_filterCategoryId != null)
-                      Chip(
-                        label: Text('Cat: ${_resolveName(_categories, _filterCategoryId)}'),
-                        onDeleted: () => setState(() => _filterCategoryId = null),
-                      ),
-                  ],
-                ),
-              ),
-            Expanded(
-              child: _ProductTable(
-                stream: _firestore.collection('productos').snapshots(),
-                searchQuery: _searchController.text,
-                filterBrandId: _filterBrandId,
-                filterCategoryId: _filterCategoryId,
-                brands: _brands,
-                categories: _categories,
-                onEdit: _showProductForm,
-                onDelete: _eliminarProducto,
-              ),
+            ListTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Productos'),
+              selected: _currentSection == 'products',
+              onTap: () {
+                setState(() => _currentSection = 'products');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Ventas'),
+              selected: _currentSection == 'ventas',
+              onTap: () {
+                setState(() => _currentSection = 'ventas');
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Cerrar sesión'),
+              onTap: () => _auth.signOut(),
             ),
           ],
         ),
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: _currentSection == 'products'
+            ? _buildProductsSection()
+            : _buildVentasSection(),
+      ),
     );
   }
 
-}
-
-class _ProductTable extends StatefulWidget {
-  final Stream<QuerySnapshot> stream;
-  final String searchQuery;
-  final String? filterBrandId;
-  final String? filterCategoryId;
-  final List<Map<String, dynamic>> brands;
-  final List<Map<String, dynamic>> categories;
-  final Future<bool?> Function({Map<String, dynamic>? product, String? id}) onEdit;
-  final Future<void> Function(String id) onDelete;
-
-  const _ProductTable({
-    required this.stream,
-    required this.searchQuery,
-    this.filterBrandId,
-    this.filterCategoryId,
-    required this.brands,
-    required this.categories,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  State<_ProductTable> createState() => _ProductTableState();
-}
-
-class _ProductTableState extends State<_ProductTable> {
-  String _resolveName(List<Map<String, dynamic>> list, String? id) {
-    if (id == null || id.isEmpty) return '—';
-    final found =
-        list.firstWhere((e) => e['id'] == id, orElse: () => {'nombre': '—'});
-    return found['nombre'] as String;
+  Widget _buildProductsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Productos',
+            style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            ElevatedButton.icon(
+              style:
+                  ElevatedButton.styleFrom(minimumSize: const Size(140, 44)),
+              icon: const Icon(Icons.add),
+              label: const Text('Agregar Producto'),
+              onPressed: () => _showProductForm(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: _ProductTable(
+            stream: _firestore.collection('productos').snapshots(),
+            brands: _brands,
+            categories: _categories,
+            onEdit: _showProductForm,
+            onDelete: _eliminarProducto,
+          ),
+        ),
+      ],
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildVentasSection() {
     return StreamBuilder<QuerySnapshot>(
-      stream: widget.stream,
+      stream: _firestore
+          .collection('historial_compras')
+          .orderBy('fecha', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -558,107 +465,578 @@ class _ProductTableState extends State<_ProductTable> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        var docs = snapshot.data!.docs;
+        final docs = snapshot.data!.docs;
 
-        final query = widget.searchQuery.toLowerCase().trim();
-        if (query.isNotEmpty) {
-          docs = docs.where((d) {
-            final data = d.data() as Map;
-            final name = (data['nombre'] ?? '').toString().toLowerCase();
-            return name.contains(query);
-          }).toList();
-        }
-        if (widget.filterBrandId != null) {
-          docs = docs.where((d) {
-            final data = d.data() as Map;
-            return (data['marca'] ?? '') == widget.filterBrandId;
-          }).toList();
-        }
-        if (widget.filterCategoryId != null) {
-          docs = docs.where((d) {
-            final data = d.data() as Map;
-            return (data['categoria'] ?? '') == widget.filterCategoryId;
-          }).toList();
+        int completadas = 0;
+        int pendientes = 0;
+        int canceladas = 0;
+        double ganancias = 0;
+
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final estado = data['estado'] as String? ?? '';
+          final total = (data['total'] as num?)?.toDouble() ?? 0;
+
+          switch (estado) {
+            case 'completado':
+              completadas++;
+              ganancias += total;
+              break;
+            case 'preparando':
+            case 'en_camino':
+              pendientes++;
+              break;
+            case 'cancelado':
+              canceladas++;
+              break;
+          }
         }
 
-        if (docs.isEmpty) {
-          return const Center(child: Text('No hay productos'));
-        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Resumen de Ventas',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _buildSummaryCard(
+                    'Completadas', completadas.toString(), Colors.green,
+                    Icons.check_circle),
+                const SizedBox(width: 12),
+                _buildSummaryCard('Ganancias',
+                    'S/ ${ganancias.toStringAsFixed(2)}', Colors.blue,
+                    Icons.monetization_on),
+                const SizedBox(width: 12),
+                _buildSummaryCard(
+                    'Pendientes', pendientes.toString(), Colors.orange,
+                    Icons.pending),
+                const SizedBox(width: 12),
+                _buildSummaryCard(
+                    'Canceladas', canceladas.toString(), Colors.grey,
+                    Icons.cancel),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('Órdenes Recientes',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Expanded(
+              child: docs.isEmpty
+                  ? const Center(child: Text('No hay ventas registradas'))
+                  : SingleChildScrollView(
+                      child: DataTable(
+                        headingRowHeight: 48,
+                        dataRowMinHeight: 48,
+                        dataRowMaxHeight: 64,
+                        columns: const [
+                          DataColumn(label: Text('Fecha')),
+                          DataColumn(label: Text('Usuario')),
+                          DataColumn(label: Text('Total'), numeric: true),
+                          DataColumn(label: Text('Estado')),
+                          DataColumn(
+                              label: Text('Prod.'), numeric: true),
+                          DataColumn(label: Text('Acción')),
+                        ],
+                        rows: docs.map((doc) {
+                          final data =
+                              doc.data() as Map<String, dynamic>;
+                          final timestamp =
+                              data['fecha'] as Timestamp?;
+                          final fecha =
+                              timestamp?.toDate() ?? DateTime.now();
+                          final total =
+                              (data['total'] as num?)?.toDouble() ?? 0;
+                          final estado =
+                              data['estado'] as String? ?? '';
+                          final productos =
+                              (data['productos'] as List<dynamic>?) ??
+                                  [];
+                          final usuario = data['usuarioNombre']
+                                  as String? ??
+                              data['uid'] as String? ??
+                              '—';
 
-        return SingleChildScrollView(
-          child: DataTable(
-            headingRowHeight: 48,
-            dataRowMinHeight: 48,
-            dataRowMaxHeight: 64,
-            columns: const [
-              DataColumn(label: Text('Imagen')),
-              DataColumn(label: Text('Nombre')),
-              DataColumn(label: Text('Marca')),
-              DataColumn(label: Text('Categoría')),
-              DataColumn(label: Text('Precio'), numeric: true),
-              DataColumn(label: Text('Stock'), numeric: true),
-              DataColumn(label: Text('Acciones')),
-            ],
-            rows: docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final imageUrl = data['imagen_url'] as String? ?? '';
-              return DataRow(
-                key: ValueKey(doc.id),
-                cells: [
-                  DataCell(
-                    imageUrl.isNotEmpty
-                        ? Image.network(
-                            imageUrl,
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
-                            cacheWidth: 80,
-                            errorBuilder: (_, e, s) => Container(
-                              width: 40,
-                              height: 40,
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.image,
-                                  size: 20, color: Colors.grey),
-                            ),
-                          )
-                        : Container(
-                            width: 40,
-                            height: 40,
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.image,
-                                size: 20, color: Colors.grey),
-                          ),
-                  ),
-                  DataCell(Text(data['nombre'] ?? '',
-                      overflow: TextOverflow.ellipsis)),
-                  DataCell(
-                      Text(_resolveName(widget.brands, data['marca'] as String?))),
-                  DataCell(Text(
-                      _resolveName(widget.categories, data['categoria'] as String?))),
-                  DataCell(
-                      Text('S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}')),
-                  DataCell(Text('${data['stock'] ?? 0}')),
-                  DataCell(Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                        tooltip: 'Editar',
-                        onPressed: () =>
-                            widget.onEdit(product: data, id: doc.id),
+                          return DataRow(
+                            key: ValueKey(doc.id),
+                            cells: [
+                              DataCell(Text(
+                                  '${fecha.day}/${fecha.month}/${fecha.year}')),
+                              DataCell(Text(usuario,
+                                  overflow: TextOverflow.ellipsis)),
+                              DataCell(Text(
+                                  'S/ ${total.toStringAsFixed(2)}')),
+                              DataCell(_buildStatusBadge(estado)),
+                              DataCell(Text('${productos.length}')),
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(Icons.visibility,
+                                      size: 20),
+                                  tooltip: 'Ver detalle',
+                                  onPressed: () =>
+                                      _showOrderDetail(data),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                        tooltip: 'Eliminar',
-                        onPressed: () => widget.onDelete(doc.id),
-                      ),
-                    ],
-                  )),
-                ],
-              );
-            }).toList(),
-          ),
+                    ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildSummaryCard(
+      String label, String value, Color color, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String estado) {
+    Color color;
+    String label;
+    switch (estado) {
+      case 'preparando':
+        color = Colors.orange;
+        label = 'Preparando';
+        break;
+      case 'en_camino':
+        color = Colors.blue;
+        label = 'En camino';
+        break;
+      case 'completado':
+        color = Colors.green;
+        label = 'Completado';
+        break;
+      case 'cancelado':
+        color = Colors.grey;
+        label = 'Cancelado';
+        break;
+      default:
+        color = Colors.grey;
+        label = estado;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  void _showOrderDetail(Map<String, dynamic> data) {
+    final timestamp = data['fecha'] as Timestamp?;
+    final fecha = timestamp?.toDate() ?? DateTime.now();
+    final estado = data['estado'] as String? ?? '';
+    final total = (data['total'] as num?)?.toDouble() ?? 0;
+    final productos = (data['productos'] as List<dynamic>?) ?? [];
+    final direccion = data['direccion'] as String? ?? 'No especificada';
+    final usuario =
+        data['usuarioNombre'] as String? ?? data['uid'] as String? ?? '—';
+    final correo = data['usuarioCorreo'] as String? ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            _buildStatusBadge(estado),
+            const Spacer(),
+            Text('${fecha.day}/${fecha.month}/${fecha.year}',
+                style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+        content: SizedBox(
+          width: 480,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _detailRow('Usuario', usuario),
+              if (correo.isNotEmpty) _detailRow('Correo', correo),
+              _detailRow('Dirección', direccion),
+              const SizedBox(height: 12),
+              const Text('Productos',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Divider(),
+              ...productos.map((p) {
+                final pMap = p as Map<String, dynamic>;
+                final nombre =
+                    pMap['nombre'] as String? ?? '—';
+                final cantidad = pMap['cantidad'] as int? ?? 0;
+                final precio =
+                    (pMap['precioUnitario'] as num?)?.toDouble() ?? 0;
+                final subtotal =
+                    (pMap['subtotal'] as num?)?.toDouble() ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(nombre,
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                      Text('x$cantidad',
+                          style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 8),
+                      Text('S/ ${precio.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 8),
+                      Text('S/ ${subtotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('S/ ${total.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(label,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductTable extends StatefulWidget {
+  final Stream<QuerySnapshot> stream;
+  final List<Map<String, dynamic>> brands;
+  final List<Map<String, dynamic>> categories;
+  final Future<bool?> Function({Map<String, dynamic>? product, String? id}) onEdit;
+  final Future<void> Function(String id) onDelete;
+
+  const _ProductTable({
+    required this.stream,
+    required this.brands,
+    required this.categories,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  State<_ProductTable> createState() => _ProductTableState();
+}
+
+class _ProductTableState extends State<_ProductTable> {
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String? _filterBrandId;
+  String? _filterCategoryId;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  String _resolveName(List<Map<String, dynamic>> list, String? id) {
+    if (id == null || id.isEmpty) return '—';
+    final found =
+        list.firstWhere((e) => e['id'] == id, orElse: () => {'nombre': '—'});
+    return found['nombre'] as String;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  hintText: 'Buscar por nombre...',
+                  prefixIcon: Icon(Icons.search),
+                  isDense: true,
+                  filled: true,
+                ),
+                onChanged: (_) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() {});
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 180,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[400]!),
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.white,
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _filterBrandId,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('Marca'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todas')),
+                    ...widget.brands.map((b) => DropdownMenuItem(
+                          value: b['id'] as String,
+                          child: Text(b['nombre'] as String),
+                        )),
+                  ],
+                  onChanged: (v) => setState(() => _filterBrandId = v),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 180,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[400]!),
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.white,
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _filterCategoryId,
+                  isDense: true,
+                  isExpanded: true,
+                  hint: const Text('Categoría'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todas')),
+                    ...widget.categories.map((c) => DropdownMenuItem(
+                          value: c['id'] as String,
+                          child: Text(c['nombre'] as String),
+                        )),
+                  ],
+                  onChanged: (v) => setState(() => _filterCategoryId = v),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_searchController.text.isNotEmpty ||
+            _filterBrandId != null ||
+            _filterCategoryId != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
+            child: Wrap(
+              spacing: 6,
+              children: [
+                if (_searchController.text.isNotEmpty)
+                  Chip(
+                    label: Text('Buscar: "${_searchController.text}"'),
+                    onDeleted: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                  ),
+                if (_filterBrandId != null)
+                  Chip(
+                    label: Text(
+                        'Marca: ${_resolveName(widget.brands, _filterBrandId)}'),
+                    onDeleted: () => setState(() => _filterBrandId = null),
+                  ),
+                if (_filterCategoryId != null)
+                  Chip(
+                    label: Text(
+                        'Cat: ${_resolveName(widget.categories, _filterCategoryId)}'),
+                    onDeleted: () =>
+                        setState(() => _filterCategoryId = null),
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: widget.stream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Error: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red)),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              var docs = snapshot.data!.docs;
+
+              final query = _searchController.text.toLowerCase().trim();
+              if (query.isNotEmpty) {
+                docs = docs.where((d) {
+                  final data = d.data() as Map;
+                  final name =
+                      (data['nombre'] ?? '').toString().toLowerCase();
+                  return name.contains(query);
+                }).toList();
+              }
+              if (_filterBrandId != null) {
+                docs = docs.where((d) {
+                  final data = d.data() as Map;
+                  return (data['marca'] ?? '') == _filterBrandId;
+                }).toList();
+              }
+              if (_filterCategoryId != null) {
+                docs = docs.where((d) {
+                  final data = d.data() as Map;
+                  return (data['categoria'] ?? '') == _filterCategoryId;
+                }).toList();
+              }
+
+              if (docs.isEmpty) {
+                return const Center(child: Text('No hay productos'));
+              }
+
+              return SingleChildScrollView(
+                child: DataTable(
+                  headingRowHeight: 48,
+                  dataRowMinHeight: 48,
+                  dataRowMaxHeight: 64,
+                  columns: const [
+                    DataColumn(label: Text('Imagen')),
+                    DataColumn(label: Text('Nombre')),
+                    DataColumn(label: Text('Marca')),
+                    DataColumn(label: Text('Categoría')),
+                    DataColumn(label: Text('Precio'), numeric: true),
+                    DataColumn(label: Text('Stock'), numeric: true),
+                    DataColumn(label: Text('Acciones')),
+                  ],
+                  rows: docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final imageUrl = data['imagen_url'] as String? ?? '';
+                    return DataRow(
+                      key: ValueKey(doc.id),
+                      cells: [
+                        DataCell(
+                          imageUrl.isNotEmpty
+                              ? Image.network(
+                                  imageUrl,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 80,
+                                  errorBuilder: (_, e, s) => Container(
+                                    width: 40,
+                                    height: 40,
+                                    color: Colors.grey[200],
+                                    child: const Icon(Icons.image,
+                                        size: 20, color: Colors.grey),
+                                  ),
+                                )
+                              : Container(
+                                  width: 40,
+                                  height: 40,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.image,
+                                      size: 20, color: Colors.grey),
+                                ),
+                        ),
+                        DataCell(Text(data['nombre'] ?? '',
+                            overflow: TextOverflow.ellipsis)),
+                        DataCell(Text(_resolveName(
+                            widget.brands, data['marca'] as String?))),
+                        DataCell(Text(_resolveName(
+                            widget.categories, data['categoria'] as String?))),
+                        DataCell(Text(
+                            'S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}')),
+                        DataCell(Text('${data['stock'] ?? 0}')),
+                        DataCell(Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit,
+                                  color: Colors.blue, size: 20),
+                              tooltip: 'Editar',
+                              onPressed: () =>
+                                  widget.onEdit(product: data, id: doc.id),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete,
+                                  color: Colors.red, size: 20),
+                              tooltip: 'Eliminar',
+                              onPressed: () => widget.onDelete(doc.id),
+                            ),
+                          ],
+                        )),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
