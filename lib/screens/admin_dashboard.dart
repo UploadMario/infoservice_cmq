@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _stockController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   String? _editingId;
   String? _selectedBrandId;
@@ -46,6 +48,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _stockController.dispose();
     _imageUrlController.dispose();
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -388,7 +391,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       isDense: true,
                       filled: true,
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                        if (mounted) setState(() {});
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -483,7 +491,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
             Expanded(
-              child: _buildProductTable(),
+              child: _ProductTable(
+                stream: _firestore.collection('productos').snapshots(),
+                searchQuery: _searchController.text,
+                filterBrandId: _filterBrandId,
+                filterCategoryId: _filterCategoryId,
+                brands: _brands,
+                categories: _categories,
+                onEdit: _showProductForm,
+                onDelete: _eliminarProducto,
+              ),
             ),
           ],
         ),
@@ -491,13 +508,50 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildProductTable() {
+}
+
+class _ProductTable extends StatefulWidget {
+  final Stream<QuerySnapshot> stream;
+  final String searchQuery;
+  final String? filterBrandId;
+  final String? filterCategoryId;
+  final List<Map<String, dynamic>> brands;
+  final List<Map<String, dynamic>> categories;
+  final Future<bool?> Function({Map<String, dynamic>? product, String? id}) onEdit;
+  final Future<void> Function(String id) onDelete;
+
+  const _ProductTable({
+    required this.stream,
+    required this.searchQuery,
+    this.filterBrandId,
+    this.filterCategoryId,
+    required this.brands,
+    required this.categories,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  State<_ProductTable> createState() => _ProductTableState();
+}
+
+class _ProductTableState extends State<_ProductTable> {
+  String _resolveName(List<Map<String, dynamic>> list, String? id) {
+    if (id == null || id.isEmpty) return '—';
+    final found =
+        list.firstWhere((e) => e['id'] == id, orElse: () => {'nombre': '—'});
+    return found['nombre'] as String;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('productos').snapshots(),
+      stream: widget.stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+            child: Text('Error: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red)),
           );
         }
         if (!snapshot.hasData) {
@@ -506,7 +560,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         var docs = snapshot.data!.docs;
 
-        final query = _searchController.text.toLowerCase().trim();
+        final query = widget.searchQuery.toLowerCase().trim();
         if (query.isNotEmpty) {
           docs = docs.where((d) {
             final data = d.data() as Map;
@@ -514,16 +568,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
             return name.contains(query);
           }).toList();
         }
-        if (_filterBrandId != null) {
+        if (widget.filterBrandId != null) {
           docs = docs.where((d) {
             final data = d.data() as Map;
-            return (data['marca'] ?? '') == _filterBrandId;
+            return (data['marca'] ?? '') == widget.filterBrandId;
           }).toList();
         }
-        if (_filterCategoryId != null) {
+        if (widget.filterCategoryId != null) {
           docs = docs.where((d) {
             final data = d.data() as Map;
-            return (data['categoria'] ?? '') == _filterCategoryId;
+            return (data['categoria'] ?? '') == widget.filterCategoryId;
           }).toList();
         }
 
@@ -548,48 +602,59 @@ class _AdminDashboardState extends State<AdminDashboard> {
             rows: docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
               final imageUrl = data['imagen_url'] as String? ?? '';
-              return DataRow(cells: [
-                DataCell(
-                  imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, e, s) => Container(
+              return DataRow(
+                key: ValueKey(doc.id),
+                cells: [
+                  DataCell(
+                    imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            cacheWidth: 80,
+                            errorBuilder: (_, e, s) => Container(
+                              width: 40,
+                              height: 40,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.image,
+                                  size: 20, color: Colors.grey),
+                            ),
+                          )
+                        : Container(
                             width: 40,
                             height: 40,
                             color: Colors.grey[200],
-                            child: const Icon(Icons.image, size: 20, color: Colors.grey),
+                            child: const Icon(Icons.image,
+                                size: 20, color: Colors.grey),
                           ),
-                        )
-                      : Container(
-                          width: 40,
-                          height: 40,
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.image, size: 20, color: Colors.grey),
-                        ),
-                ),
-                DataCell(Text(data['nombre'] ?? '', overflow: TextOverflow.ellipsis)),
-                DataCell(Text(_resolveName(_brands, data['marca'] as String?))),
-                DataCell(Text(_resolveName(_categories, data['categoria'] as String?))),
-                DataCell(Text('S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}')),
-                DataCell(Text('${data['stock'] ?? 0}')),
-                DataCell(Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                      tooltip: 'Editar',
-                      onPressed: () => _showProductForm(product: data, id: doc.id),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                      tooltip: 'Eliminar',
-                      onPressed: () => _eliminarProducto(doc.id),
-                    ),
-                  ],
-                )),
-              ]);
+                  ),
+                  DataCell(Text(data['nombre'] ?? '',
+                      overflow: TextOverflow.ellipsis)),
+                  DataCell(
+                      Text(_resolveName(widget.brands, data['marca'] as String?))),
+                  DataCell(Text(
+                      _resolveName(widget.categories, data['categoria'] as String?))),
+                  DataCell(
+                      Text('S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}')),
+                  DataCell(Text('${data['stock'] ?? 0}')),
+                  DataCell(Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                        tooltip: 'Editar',
+                        onPressed: () =>
+                            widget.onEdit(product: data, id: doc.id),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                        tooltip: 'Eliminar',
+                        onPressed: () => widget.onDelete(doc.id),
+                      ),
+                    ],
+                  )),
+                ],
+              );
             }).toList(),
           ),
         );
