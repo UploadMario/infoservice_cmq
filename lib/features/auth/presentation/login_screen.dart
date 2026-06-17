@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../widgets/logo_widget.dart';
 import '../data/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -99,17 +100,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(Icons.storefront_rounded, size: 56, color: Color(0xFF165DFF)),
+                        const LogoWidget(),
                         const SizedBox(height: 14),
-                        Text(
-                          'Infoservice',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF0F172A),
-                              ),
-                        ),
-                        const SizedBox(height: 6),
                         Text(
                           _isRegisterMode ? 'Crear usuario del sistema' : 'Ventas y gestión empresarial',
                           textAlign: TextAlign.center,

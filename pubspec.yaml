@@ -71,6 +71,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/logo blanco roboto.png
+
   # To add assets to your application, add an assets section, like this:
   #assets:
   # - lib/assets/csv/Categoria_Nivel_1.csv
