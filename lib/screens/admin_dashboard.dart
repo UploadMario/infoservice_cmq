@@ -96,7 +96,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  Future<bool?> _showProductForm({Map<String, dynamic>? product, String? id}) async {
+  Future<bool?> _showProductForm({
+    Map<String, dynamic>? product,
+    String? id,
+  }) async {
     if (product != null) {
       _nameController.text = product['nombre'] ?? '';
       _priceController.text = (product['precio'] ?? '').toString();
@@ -128,7 +131,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: Text(_editingId == null ? 'Nuevo Producto' : 'Editar Producto'),
+              title: Text(
+                _editingId == null ? 'Nuevo Producto' : 'Editar Producto',
+              ),
               content: SizedBox(
                 width: 480,
                 child: Form(
@@ -143,8 +148,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           prefixIcon: Icon(Icons.inventory_2_outlined),
                         ),
                         textCapitalization: TextCapitalization.words,
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Ingresa el nombre'
+                            : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -169,7 +175,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               height: 100,
                               color: Colors.grey[200],
                               child: const Center(
-                                child: Icon(Icons.broken_image, color: Colors.grey),
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
                           ),
@@ -187,13 +196,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             value: null,
                             child: Text('Seleccionar marca'),
                           ),
-                          ..._brands.map((b) => DropdownMenuItem(
-                                value: b['id'] as String,
-                                child: Text(b['nombre'] as String),
-                              )),
+                          ..._brands.map(
+                            (b) => DropdownMenuItem(
+                              value: b['id'] as String,
+                              child: Text(b['nombre'] as String),
+                            ),
+                          ),
                         ],
-                        onChanged: (v) => setDialogState(() => localBrandId = v),
-                        validator: (v) => v == null ? 'Selecciona una marca' : null,
+                        onChanged: (v) =>
+                            setDialogState(() => localBrandId = v),
+                        validator: (v) =>
+                            v == null ? 'Selecciona una marca' : null,
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
@@ -207,13 +220,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             value: null,
                             child: Text('Seleccionar categoría'),
                           ),
-                          ..._categories.map((c) => DropdownMenuItem(
-                                value: c['id'] as String,
-                                child: Text(c['nombre'] as String),
-                              )),
+                          ..._categories.map(
+                            (c) => DropdownMenuItem(
+                              value: c['id'] as String,
+                              child: Text(c['nombre'] as String),
+                            ),
+                          ),
                         ],
-                        onChanged: (v) => setDialogState(() => localCategoryId = v),
-                        validator: (v) => v == null ? 'Selecciona una categoría' : null,
+                        onChanged: (v) =>
+                            setDialogState(() => localCategoryId = v),
+                        validator: (v) =>
+                            v == null ? 'Selecciona una categoría' : null,
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -223,12 +240,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               controller: _priceController,
                               decoration: const InputDecoration(
                                 labelText: 'Precio (S/.)',
-                                prefixIcon: Icon(Icons.monetization_on_outlined),
+                                prefixIcon: Icon(
+                                  Icons.monetization_on_outlined,
+                                ),
                               ),
                               keyboardType:
-                                  const TextInputType.numberWithOptions(decimal: true),
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Requerido';
+                                if (v == null || v.trim().isEmpty)
+                                  return 'Requerido';
                                 final p = double.tryParse(v.trim());
                                 if (p == null || p < 0) return 'Inválido';
                                 return null;
@@ -245,7 +267,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                               keyboardType: TextInputType.number,
                               validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Requerido';
+                                if (v == null || v.trim().isEmpty)
+                                  return 'Requerido';
                                 final s = int.tryParse(v.trim());
                                 if (s == null || s < 0) return 'Inválido';
                                 return null;
@@ -327,9 +350,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     if (!_frameReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return StreamBuilder<User?>(
       stream: _auth.authStateChanges(),
@@ -344,15 +365,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildDashboard() {
     if (!_brandsLoaded) {
       _loadBrandsAndCategories();
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentSection == 'products'
-            ? 'Gestión de Productos'
-            : 'Ventas y Ganancias'),
+        title: Text(
+          _currentSection == 'products'
+              ? 'Gestión de Productos'
+              : 'Ventas y Ganancias',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -366,16 +387,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFF165DFF)),
-              child: const Column(
+              decoration: const BoxDecoration(),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.admin_panel_settings,
-                      color: Colors.white, size: 48),
-                  SizedBox(height: 8),
-                  Text('Admin Panel',
-                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                  SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Image.asset('assets/icono.png', fit: BoxFit.contain),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Admin Panel', style: TextStyle(fontSize: 18)),
                 ],
               ),
             ),
@@ -419,15 +442,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Productos',
-            style: Theme.of(context).textTheme.headlineSmall),
+        Text('Productos', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             ElevatedButton.icon(
-              style:
-                  ElevatedButton.styleFrom(minimumSize: const Size(140, 44)),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(140, 44)),
               icon: const Icon(Icons.add),
               label: const Text('Agregar Producto'),
               onPressed: () => _showProductForm(),
@@ -457,8 +478,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red)),
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            ),
           );
         }
         if (!snapshot.hasData) {
@@ -495,31 +518,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Resumen de Ventas',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Resumen de Ventas',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
                 _buildSummaryCard(
-                    'Completadas', completadas.toString(), Colors.green,
-                    Icons.check_circle),
-                const SizedBox(width: 12),
-                _buildSummaryCard('Ganancias',
-                    'S/ ${ganancias.toStringAsFixed(2)}', Colors.blue,
-                    Icons.monetization_on),
-                const SizedBox(width: 12),
-                _buildSummaryCard(
-                    'Pendientes', pendientes.toString(), Colors.orange,
-                    Icons.pending),
+                  'Completadas',
+                  completadas.toString(),
+                  Colors.green,
+                  Icons.check_circle,
+                ),
                 const SizedBox(width: 12),
                 _buildSummaryCard(
-                    'Canceladas', canceladas.toString(), Colors.grey,
-                    Icons.cancel),
+                  'Ganancias',
+                  'S/ ${ganancias.toStringAsFixed(2)}',
+                  Colors.blue,
+                  Icons.monetization_on,
+                ),
+                const SizedBox(width: 12),
+                _buildSummaryCard(
+                  'Pendientes',
+                  pendientes.toString(),
+                  Colors.orange,
+                  Icons.pending,
+                ),
+                const SizedBox(width: 12),
+                _buildSummaryCard(
+                  'Canceladas',
+                  canceladas.toString(),
+                  Colors.grey,
+                  Icons.cancel,
+                ),
               ],
             ),
             const SizedBox(height: 24),
-            Text('Órdenes Recientes',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Órdenes Recientes',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             Expanded(
               child: docs.isEmpty
@@ -534,47 +573,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           DataColumn(label: Text('Usuario')),
                           DataColumn(label: Text('Total'), numeric: true),
                           DataColumn(label: Text('Estado')),
-                          DataColumn(
-                              label: Text('Prod.'), numeric: true),
+                          DataColumn(label: Text('Prod.'), numeric: true),
                           DataColumn(label: Text('Acción')),
                         ],
                         rows: docs.map((doc) {
-                          final data =
-                              doc.data() as Map<String, dynamic>;
-                          final timestamp =
-                              data['fecha'] as Timestamp?;
-                          final fecha =
-                              timestamp?.toDate() ?? DateTime.now();
+                          final data = doc.data() as Map<String, dynamic>;
+                          final timestamp = data['fecha'] as Timestamp?;
+                          final fecha = timestamp?.toDate() ?? DateTime.now();
                           final total =
                               (data['total'] as num?)?.toDouble() ?? 0;
-                          final estado =
-                              data['estado'] as String? ?? '';
+                          final estado = data['estado'] as String? ?? '';
                           final productos =
-                              (data['productos'] as List<dynamic>?) ??
-                                  [];
-                          final usuario = data['usuarioNombre']
-                                  as String? ??
+                              (data['productos'] as List<dynamic>?) ?? [];
+                          final usuario =
+                              data['usuarioNombre'] as String? ??
                               data['uid'] as String? ??
                               '—';
 
                           return DataRow(
                             key: ValueKey(doc.id),
                             cells: [
-                              DataCell(Text(
-                                  '${fecha.day}/${fecha.month}/${fecha.year}')),
-                              DataCell(Text(usuario,
-                                  overflow: TextOverflow.ellipsis)),
-                              DataCell(Text(
-                                  'S/ ${total.toStringAsFixed(2)}')),
+                              DataCell(
+                                Text(
+                                  '${fecha.day}/${fecha.month}/${fecha.year}',
+                                ),
+                              ),
+                              DataCell(
+                                Text(usuario, overflow: TextOverflow.ellipsis),
+                              ),
+                              DataCell(Text('S/ ${total.toStringAsFixed(2)}')),
                               DataCell(_buildStatusBadge(estado)),
                               DataCell(Text('${productos.length}')),
                               DataCell(
                                 IconButton(
-                                  icon: const Icon(Icons.visibility,
-                                      size: 20),
+                                  icon: const Icon(Icons.visibility, size: 20),
                                   tooltip: 'Ver detalle',
-                                  onPressed: () =>
-                                      _showOrderDetail(data),
+                                  onPressed: () => _showOrderDetail(data),
                                 ),
                               ),
                             ],
@@ -590,7 +624,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildSummaryCard(
-      String label, String value, Color color, IconData icon) {
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -604,13 +642,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 8),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
-            Text(label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
           ],
         ),
       ),
@@ -648,9 +691,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -672,8 +720,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             _buildStatusBadge(estado),
             const Spacer(),
-            Text('${fecha.day}/${fecha.month}/${fecha.year}',
-                style: const TextStyle(fontSize: 14)),
+            Text(
+              '${fecha.day}/${fecha.month}/${fecha.year}',
+              style: const TextStyle(fontSize: 14),
+            ),
           ],
         ),
         content: SizedBox(
@@ -685,36 +735,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
               if (correo.isNotEmpty) _detailRow('Correo', correo),
               _detailRow('Dirección', direccion),
               const SizedBox(height: 12),
-              const Text('Productos',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Productos',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const Divider(),
               ...productos.map((p) {
                 final pMap = p as Map<String, dynamic>;
-                final nombre =
-                    pMap['nombre'] as String? ?? '—';
+                final nombre = pMap['nombre'] as String? ?? '—';
                 final cantidad = pMap['cantidad'] as int? ?? 0;
                 final precio =
                     (pMap['precioUnitario'] as num?)?.toDouble() ?? 0;
-                final subtotal =
-                    (pMap['subtotal'] as num?)?.toDouble() ?? 0;
+                final subtotal = (pMap['subtotal'] as num?)?.toDouble() ?? 0;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(nombre,
-                            style: const TextStyle(fontSize: 13)),
+                        child: Text(
+                          nombre,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
-                      Text('x$cantidad',
-                          style: const TextStyle(fontSize: 12)),
+                      Text('x$cantidad', style: const TextStyle(fontSize: 12)),
                       const SizedBox(width: 8),
-                      Text('S/ ${precio.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 12)),
+                      Text(
+                        'S/ ${precio.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       const SizedBox(width: 8),
-                      Text('S/ ${subtotal.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
+                      Text(
+                        'S/ ${subtotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -723,12 +779,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('S/ ${total.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
+                  const Text(
+                    'Total',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'S/ ${total.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -752,13 +813,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label,
-                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
           ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(fontSize: 13)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
@@ -769,7 +829,8 @@ class _ProductTable extends StatefulWidget {
   final Stream<QuerySnapshot> stream;
   final List<Map<String, dynamic>> brands;
   final List<Map<String, dynamic>> categories;
-  final Future<bool?> Function({Map<String, dynamic>? product, String? id}) onEdit;
+  final Future<bool?> Function({Map<String, dynamic>? product, String? id})
+  onEdit;
   final Future<void> Function(String id) onDelete;
 
   const _ProductTable({
@@ -799,8 +860,10 @@ class _ProductTableState extends State<_ProductTable> {
 
   String _resolveName(List<Map<String, dynamic>> list, String? id) {
     if (id == null || id.isEmpty) return '—';
-    final found =
-        list.firstWhere((e) => e['id'] == id, orElse: () => {'nombre': '—'});
+    final found = list.firstWhere(
+      (e) => e['id'] == id,
+      orElse: () => {'nombre': '—'},
+    );
     return found['nombre'] as String;
   }
 
@@ -822,10 +885,12 @@ class _ProductTableState extends State<_ProductTable> {
                 ),
                 onChanged: (_) {
                   _searchDebounce?.cancel();
-                  _searchDebounce =
-                      Timer(const Duration(milliseconds: 300), () {
-                    if (mounted) setState(() {});
-                  });
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 300),
+                    () {
+                      if (mounted) setState(() {});
+                    },
+                  );
                 },
               ),
             ),
@@ -846,10 +911,12 @@ class _ProductTableState extends State<_ProductTable> {
                   hint: const Text('Marca'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Todas')),
-                    ...widget.brands.map((b) => DropdownMenuItem(
-                          value: b['id'] as String,
-                          child: Text(b['nombre'] as String),
-                        )),
+                    ...widget.brands.map(
+                      (b) => DropdownMenuItem(
+                        value: b['id'] as String,
+                        child: Text(b['nombre'] as String),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _filterBrandId = v),
                 ),
@@ -872,10 +939,12 @@ class _ProductTableState extends State<_ProductTable> {
                   hint: const Text('Categoría'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Todas')),
-                    ...widget.categories.map((c) => DropdownMenuItem(
-                          value: c['id'] as String,
-                          child: Text(c['nombre'] as String),
-                        )),
+                    ...widget.categories.map(
+                      (c) => DropdownMenuItem(
+                        value: c['id'] as String,
+                        child: Text(c['nombre'] as String),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _filterCategoryId = v),
                 ),
@@ -902,15 +971,16 @@ class _ProductTableState extends State<_ProductTable> {
                 if (_filterBrandId != null)
                   Chip(
                     label: Text(
-                        'Marca: ${_resolveName(widget.brands, _filterBrandId)}'),
+                      'Marca: ${_resolveName(widget.brands, _filterBrandId)}',
+                    ),
                     onDeleted: () => setState(() => _filterBrandId = null),
                   ),
                 if (_filterCategoryId != null)
                   Chip(
                     label: Text(
-                        'Cat: ${_resolveName(widget.categories, _filterCategoryId)}'),
-                    onDeleted: () =>
-                        setState(() => _filterCategoryId = null),
+                      'Cat: ${_resolveName(widget.categories, _filterCategoryId)}',
+                    ),
+                    onDeleted: () => setState(() => _filterCategoryId = null),
                   ),
               ],
             ),
@@ -922,8 +992,10 @@ class _ProductTableState extends State<_ProductTable> {
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(
-                  child: Text('Error: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red)),
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 );
               }
               if (!snapshot.hasData) {
@@ -936,8 +1008,7 @@ class _ProductTableState extends State<_ProductTable> {
               if (query.isNotEmpty) {
                 docs = docs.where((d) {
                   final data = d.data() as Map;
-                  final name =
-                      (data['nombre'] ?? '').toString().toLowerCase();
+                  final name = (data['nombre'] ?? '').toString().toLowerCase();
                   return name.contains(query);
                 }).toList();
               }
@@ -990,44 +1061,77 @@ class _ProductTableState extends State<_ProductTable> {
                                     width: 40,
                                     height: 40,
                                     color: Colors.grey[200],
-                                    child: const Icon(Icons.image,
-                                        size: 20, color: Colors.grey),
+                                    child: const Icon(
+                                      Icons.image,
+                                      size: 20,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 )
                               : Container(
                                   width: 40,
                                   height: 40,
                                   color: Colors.grey[200],
-                                  child: const Icon(Icons.image,
-                                      size: 20, color: Colors.grey),
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 20,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                         ),
-                        DataCell(Text(data['nombre'] ?? '',
-                            overflow: TextOverflow.ellipsis)),
-                        DataCell(Text(_resolveName(
-                            widget.brands, data['marca'] as String?))),
-                        DataCell(Text(_resolveName(
-                            widget.categories, data['categoria'] as String?))),
-                        DataCell(Text(
-                            'S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}')),
+                        DataCell(
+                          Text(
+                            data['nombre'] ?? '',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _resolveName(
+                              widget.brands,
+                              data['marca'] as String?,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _resolveName(
+                              widget.categories,
+                              data['categoria'] as String?,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            'S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}',
+                          ),
+                        ),
                         DataCell(Text('${data['stock'] ?? 0}')),
-                        DataCell(Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit,
-                                  color: Colors.blue, size: 20),
-                              tooltip: 'Editar',
-                              onPressed: () =>
-                                  widget.onEdit(product: data, id: doc.id),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete,
-                                  color: Colors.red, size: 20),
-                              tooltip: 'Eliminar',
-                              onPressed: () => widget.onDelete(doc.id),
-                            ),
-                          ],
-                        )),
+                        DataCell(
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
+                                tooltip: 'Editar',
+                                onPressed: () =>
+                                    widget.onEdit(product: data, id: doc.id),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                tooltip: 'Eliminar',
+                                onPressed: () => widget.onDelete(doc.id),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     );
                   }).toList(),
@@ -1101,19 +1205,16 @@ class _AdminLoginPageState extends State<_AdminLoginPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
+              SizedBox(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF165DFF),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.admin_panel_settings,
-                    color: Colors.white, size: 48),
+                child: Image.asset('assets/icono.png', fit: BoxFit.contain),
               ),
               const SizedBox(height: 16),
-              const Text('Panel de Administración',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                'Panel de Administración',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 24),
               TextField(
                 controller: _emailController,
