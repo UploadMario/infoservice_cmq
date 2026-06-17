@@ -66,6 +66,7 @@ class _AboutScreenState extends State<AboutScreen> {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        if (!mounted) return;
         setState(() => _locationError = 'Servicio de ubicación desactivado');
         return;
       }
@@ -74,12 +75,14 @@ class _AboutScreenState extends State<AboutScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          if (!mounted) return;
           setState(() => _locationError = 'Permiso de ubicación denegado');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
         setState(() =>
             _locationError = 'Permiso denegado permanentemente. Actívalo en Ajustes.');
         return;
@@ -96,13 +99,16 @@ class _AboutScreenState extends State<AboutScreen> {
         ),
       ).listen(_onPositionChanged, onError: (_) {});
 
+      if (!mounted) return;
       setState(() => _locationReady = true);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _locationError = 'Error al obtener ubicación: $e');
     }
   }
 
   void _onPositionChanged(Position pos) {
+    if (!mounted) return;
     _userPosition = LatLng(pos.latitude, pos.longitude);
     _debouncedFetchRoute();
     setState(() {});
