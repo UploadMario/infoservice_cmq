@@ -7,7 +7,6 @@ import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart'
 import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
 import 'package:infoservice_cmq/features/favorites/data/favorites_service.dart';
 import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
-import 'product_form_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -88,50 +87,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
   }
 
-  Future<void> _deleteProduct(ProductModel product) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar producto'),
-        content: Text('¿Eliminar "${product.name}" permanentemente?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    try {
-      await _productService.deleteProduct(product.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${product.name}" eliminado')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  void _openForm([ProductModel? product]) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProductFormScreen(product: product),
-        fullscreenDialog: true,
-      ),
-    );
-  }
 
   void _addToCart(ProductModel product) {
     final error = CartService.instance.addItem(product);
@@ -184,10 +139,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
-      ),
       body: Column(
         children: [
           Padding(
@@ -225,8 +176,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         onToggleFavorite: () =>
                             _favorites.toggle(product.id),
                         onAddToCart: () => _addToCart(product),
-                        onEdit: () => _openForm(product),
-                        onDelete: () => _deleteProduct(product),
                       );
                     },
                   ),
@@ -322,16 +271,12 @@ class _ProductCard extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
   final VoidCallback onAddToCart;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   const _ProductCard({
     required this.product,
     required this.isFavorite,
     required this.onToggleFavorite,
     required this.onAddToCart,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -429,33 +374,33 @@ class _ProductCard extends StatelessWidget {
               ),
             ),
           ),
-          Divider(height: 1, color: Colors.grey[300]),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
-                onPressed: product.stock > 0 ? onAddToCart : null,
-                tooltip: product.stock > 0 ? 'Agregar al carrito' : 'Sin stock',
-                color: product.stock > 0 ? Colors.blue : Colors.grey,
+          InkWell(
+            onTap: product.stock > 0 ? onAddToCart : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: product.stock > 0 ? Colors.blue : Colors.grey[300],
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    onPressed: onEdit,
-                    tooltip: 'Editar',
+                  Icon(
+                    Icons.add_shopping_cart_outlined,
+                    size: 18,
+                    color: Colors.white,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18,
-                        color: Colors.red),
-                    onPressed: onDelete,
-                    tooltip: 'Eliminar',
+                  const SizedBox(width: 6),
+                  Text(
+                    product.stock > 0 ? 'Agregar al carrito' : 'Sin stock',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ],
       ),
