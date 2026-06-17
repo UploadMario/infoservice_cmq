@@ -7,6 +7,7 @@ import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart'
 import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
 import 'package:infoservice_cmq/features/favorites/data/favorites_service.dart';
 import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -138,6 +139,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
             onPressed: _showFilterDialog,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final uri = Uri.parse('https://wa.me/51964834558');
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            await launchUrl(uri, mode: LaunchMode.platformDefault);
+          }
+        },
+        backgroundColor: const Color(0xFF25D366),
+        child: const Icon(Icons.chat, color: Colors.white),
       ),
       body: Column(
         children: [
