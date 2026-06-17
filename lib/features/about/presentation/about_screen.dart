@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:infoservice_cmq/features/auth/data/auth_service.dart';
+import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -219,8 +220,7 @@ class _AboutScreenState extends State<AboutScreen> {
     final minutes = (_duration / 60).round();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nosotros'),
+      appBar: CustomAppBar(
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',

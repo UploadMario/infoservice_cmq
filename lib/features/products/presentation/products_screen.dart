@@ -6,6 +6,7 @@ import 'package:infoservice_cmq/features/cart/data/cart_service.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
 import 'package:infoservice_cmq/features/favorites/data/favorites_service.dart';
+import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
 import 'product_form_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -159,8 +160,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Productos'),
+      appBar: CustomAppBar(
         actions: [
           CartBadgeIcon(onTap: _openCart),
           IconButton(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
 
 class DeliveryTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -270,7 +271,7 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
         : 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Seguimiento de pedido')),
+      appBar: const CustomAppBar(),
       body: _businessLocation == null || _userLocation == null
           ? const Center(child: Text('Datos de ubicación no disponibles'))
           : Column(

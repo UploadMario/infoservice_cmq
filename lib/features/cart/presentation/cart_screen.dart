@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../widgets/custom_app_bar.dart';
 import '../data/cart_service.dart';
 import '../data/models/cart_item_model.dart';
 import 'location_picker_screen.dart';
@@ -162,7 +163,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Carrito')),
+      appBar: const CustomAppBar(),
       body: _cart.isEmpty
           ? const Center(
               child: Column(

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../widgets/custom_app_bar.dart';
 import '../data/cart_service.dart';
 import '../../delivery/presentation/delivery_tracking_screen.dart';
 
@@ -11,7 +12,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
     final cartService = CartService.instance;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Historial de compras')),
+      appBar: const CustomAppBar(),
       body: StreamBuilder<QuerySnapshot>(
         stream: cartService.getPurchaseHistory(),
         builder: (context, snapshot) {
