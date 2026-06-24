@@ -26,6 +26,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   double _minPrice = 0;
   double _maxPrice = 10000;
   bool _showFavoritesOnly = false;
+  bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
   StreamSubscription? _subscription;
 
@@ -38,6 +39,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       (products) {
         if (!mounted) return;
         setState(() {
+          _isLoading = false;
           _products = products;
           _filteredProducts = products;
           _applyFilters();
@@ -169,8 +171,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           ),
           Expanded(
-            child: _filteredProducts.isEmpty
-                ? const Center(child: Text('No hay productos disponibles.'))
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredProducts.isEmpty
+                    ? const Center(child: Text('No hay productos disponibles.'))
                 : GridView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
                     gridDelegate:
