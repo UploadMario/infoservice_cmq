@@ -202,77 +202,182 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final categoryNames =
         _products.map((p) => p.categoryName).toSet().toList();
     final brandNames = _products.map((p) => p.brandName).toSet().toList();
+    final maxProductPrice = _products.isEmpty
+        ? 2000.0
+        : _products
+            .map((p) => p.price)
+            .reduce((a, b) => a > b ? a : b)
+            .ceilToDouble();
+    final effectiveMax = maxProductPrice < 10 ? 10.0 : maxProductPrice;
+
+    if (_minPrice > effectiveMax) _minPrice = 0;
+    if (_maxPrice > effectiveMax) _maxPrice = effectiveMax;
+    if (_minPrice > _maxPrice) _minPrice = 0;
+
+    TextEditingController minController =
+        TextEditingController(text: _minPrice.toStringAsFixed(0));
+    TextEditingController maxController =
+        TextEditingController(text: _maxPrice.toStringAsFixed(0));
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Filtrar productos'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedCategory,
-                  items: ['Todas', ...categoryNames].map((category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedCategory = value!);
-                    _applyFilters();
-                    Navigator.pop(context);
-                  },
-                  decoration: const InputDecoration(labelText: 'Categoría'),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Filtrar productos'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Categoría',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[400]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCategory,
+                          isExpanded: true,
+                          isDense: true,
+                          items: ['Todas', ...categoryNames]
+                              .map((category) {
+                            return DropdownMenuItem<String>(
+                              value: category,
+                              child: Text(category,
+                                  overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedCategory = value!);
+                            _applyFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Marca',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[400]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedBrand,
+                          isExpanded: true,
+                          isDense: true,
+                          items: ['Todas', ...brandNames].map((brand) {
+                            return DropdownMenuItem<String>(
+                              value: brand,
+                              child: Text(brand,
+                                  overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedBrand = value!);
+                            _applyFilters();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Rango de precio',
+                        style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: minController,
+                            decoration: const InputDecoration(
+                              prefixText: 'S/ ',
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) {
+                              final val = double.tryParse(v);
+                              if (val != null && val >= 0) {
+                                setDialogState(() => _minPrice = val);
+                              }
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: RangeSlider(
+                            values: RangeValues(_minPrice, _maxPrice),
+                            min: 0,
+                            max: effectiveMax,
+                            labels: RangeLabels(
+                              'S/ ${_minPrice.toStringAsFixed(0)}',
+                              'S/ ${_maxPrice.toStringAsFixed(0)}',
+                            ),
+                            onChanged: (values) {
+                              setDialogState(() {
+                                _minPrice = values.start;
+                                _maxPrice = values.end;
+                              });
+                              minController.text =
+                                  values.start.toStringAsFixed(0);
+                              maxController.text =
+                                  values.end.toStringAsFixed(0);
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: maxController,
+                            decoration: const InputDecoration(
+                              prefixText: 'S/ ',
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) {
+                              final val = double.tryParse(v);
+                              if (val != null && val >= 0) {
+                                setDialogState(() => _maxPrice = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _applyFilters();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Aplicar filtros'),
+                      ),
+                    ),
+                  ],
                 ),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedBrand,
-                  items: ['Todas', ...brandNames].map((brand) {
-                    return DropdownMenuItem<String>(
-                      value: brand,
-                      child: Text(brand),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedBrand = value!);
-                    _applyFilters();
-                    Navigator.pop(context);
-                  },
-                  decoration: const InputDecoration(labelText: 'Marca'),
-                ),
-                RangeSlider(
-                  values: RangeValues(_minPrice, _maxPrice),
-                  min: 0,
-                  max: 10000,
-                  divisions: 100,
-                  labels: RangeLabels(
-                    'S/. ${_minPrice.toStringAsFixed(2)}',
-                    'S/. ${_maxPrice.toStringAsFixed(2)}',
-                  ),
-                  onChanged: (values) {
-                    setState(() {
-                      _minPrice = values.start;
-                      _maxPrice = values.end;
-                    });
-                  },
-                  onChangeEnd: (values) {
-                    _applyFilters();
-                    Navigator.pop(context);
-                  },
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    _applyFilters();
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Aplicar filtros'),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
