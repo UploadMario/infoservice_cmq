@@ -306,7 +306,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       try {
         final parts = url.split(',');
         if (parts.length >= 2) {
-          return Image.memory(base64Decode(parts[1]), fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, e, s) => _storePlaceholder());
+          return Image.memory(base64Decode(parts[1]), cacheWidth: 300, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, e, s) => _storePlaceholder());
         }
       } catch (_) {}
     }
@@ -758,6 +758,7 @@ class _ProductCard extends StatelessWidget {
         if (parts.length >= 2) {
           return Image.memory(
             base64Decode(parts[1]),
+            cacheWidth: 120,
             fit: BoxFit.cover,
             width: double.infinity,
             errorBuilder: (_, e, s) => _imagePlaceholder(),

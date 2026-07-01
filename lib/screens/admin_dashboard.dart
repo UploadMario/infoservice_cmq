@@ -1258,6 +1258,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           borderRadius: BorderRadius.circular(8),
           child: Image.memory(
             bytes,
+            cacheWidth: 200,
             height: h,
             width: w,
             fit: BoxFit.cover,
@@ -1600,6 +1601,7 @@ class _ProductTableState extends State<_ProductTable> {
         if (parts.length >= 2) {
           return Image.memory(
             base64Decode(parts[1]),
+            cacheWidth: w.toInt(),
             width: w,
             height: h,
             fit: BoxFit.cover,

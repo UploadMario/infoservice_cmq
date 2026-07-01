@@ -3,6 +3,24 @@ import 'package:infoservice_cmq/features/products/data/models/product_model.dart
 
 class ProductService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Map<String, String> _brandCache = {};
+  final Map<String, String> _categoryCache = {};
+
+  Future<String> _getBrandName(String id) async {
+    if (_brandCache.containsKey(id)) return _brandCache[id]!;
+    final doc = await _firestore.collection('marcas').doc(id).get();
+    final name = doc.exists ? (doc['nombre'] ?? '') as String : '';
+    _brandCache[id] = name;
+    return name;
+  }
+
+  Future<String> _getCategoryName(String id) async {
+    if (_categoryCache.containsKey(id)) return _categoryCache[id]!;
+    final doc = await _firestore.collection('categorias_nivel3').doc(id).get();
+    final name = doc.exists ? (doc['nombre'] ?? '') as String : '';
+    _categoryCache[id] = name;
+    return name;
+  }
 
   Future<List<ProductModel>> _buildProducts(QuerySnapshot snapshot) async {
     return Future.wait(
@@ -11,23 +29,8 @@ class ProductService {
         final brandId = productData['marca'] ?? '';
         final categoryId = productData['categoria'] ?? '';
 
-        String brandName = '';
-        if (brandId.isNotEmpty) {
-          final brandDoc = await _firestore
-              .collection('marcas')
-              .doc(brandId)
-              .get();
-          if (brandDoc.exists) brandName = brandDoc['nombre'] ?? '';
-        }
-
-        String categoryName = '';
-        if (categoryId.isNotEmpty) {
-          final categoryDoc = await _firestore
-              .collection('categorias_nivel3')
-              .doc(categoryId)
-              .get();
-          if (categoryDoc.exists) categoryName = categoryDoc['nombre'] ?? '';
-        }
+        final brandName = brandId.isNotEmpty ? await _getBrandName(brandId) : '';
+        final categoryName = categoryId.isNotEmpty ? await _getCategoryName(categoryId) : '';
 
         final creadoEn = productData['creado_en'];
         final actualizadoEn = productData['actualizado_en'];

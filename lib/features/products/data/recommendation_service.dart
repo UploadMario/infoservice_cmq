@@ -5,7 +5,11 @@ class RecommendationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<List<ProductModel>> getRelatedProducts(String productId, {int limit = 5}) async {
-    final orders = await _firestore.collection('historial_compras').get();
+    final orders = await _firestore
+        .collection('historial_compras')
+        .orderBy('fecha', descending: true)
+        .limit(50)
+        .get();
 
     final Map<String, int> coCount = {};
     for (final order in orders.docs) {

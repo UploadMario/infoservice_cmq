@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../widgets/custom_app_bar.dart';
@@ -20,6 +21,7 @@ class _CartScreenState extends State<CartScreen> {
   List<ProductModel> _related = [];
   bool _isPurchasing = false;
   bool _loadingRelated = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -31,11 +33,13 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void dispose() {
     _cart.removeListener(_onCartChanged);
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
   void _onCartChanged() {
-    _loadRelated();
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(seconds: 2), _loadRelated);
   }
 
   Future<void> _loadRelated() async {
