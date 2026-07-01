@@ -1275,7 +1275,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         url,
         height: h,
         width: w,
-        cacheWidth: w.toInt(),
+        cacheWidth: w.isFinite ? w.toInt() : null,
         fit: BoxFit.cover,
         errorBuilder: (_, e, s) => _imagePlaceholder(),
       ),
@@ -1601,7 +1601,7 @@ class _ProductTableState extends State<_ProductTable> {
         if (parts.length >= 2) {
           return Image.memory(
             base64Decode(parts[1]),
-            cacheWidth: w.toInt(),
+            cacheWidth: w.isFinite ? w.toInt() : null,
             width: w,
             height: h,
             fit: BoxFit.cover,
