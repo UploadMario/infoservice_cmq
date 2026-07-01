@@ -3,14 +3,23 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _PieChartData {
+  final String label;
+  final double value;
+  final Color color;
+  _PieChartData(this.label, this.value, this.color);
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
@@ -555,16 +564,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
         }
 
         final docs = snapshot.data!.docs;
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
 
         int completadas = 0;
         int pendientes = 0;
         int canceladas = 0;
+        int ordenesHoy = 0;
         double ganancias = 0;
+        double ingresosHoy = 0;
+        double sumaTotales = 0;
+        final Map<String, double> revenueByDay = {};
+        final Map<String, int> productCount = {};
+        final Map<String, double> productRevenue = {};
 
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final estado = data['estado'] as String? ?? '';
           final total = (data['total'] as num?)?.toDouble() ?? 0;
+          final timestamp = data['fecha'] as Timestamp?;
+          final fecha = timestamp?.toDate() ?? now;
+
+          sumaTotales += total;
+
+          if (fecha.isAfter(todayStart)) {
+            ordenesHoy++;
+            if (estado == 'completado') {
+              ingresosHoy += total;
+            }
+          }
 
           switch (estado) {
             case 'completado':
@@ -579,111 +607,145 @@ class _AdminDashboardState extends State<AdminDashboard> {
               canceladas++;
               break;
           }
+
+          final dayKey = '${fecha.day}/${fecha.month}';
+          revenueByDay.update(dayKey, (v) => v + total, ifAbsent: () => total);
+
+          final productos = data['productos'] as List<dynamic>? ?? [];
+          for (final p in productos) {
+            final nombre = (p is Map ? p['nombre'] ?? p['name'] : null) as String? ?? 'Producto';
+            final precio = (p is Map ? (p['precio'] ?? p['price'] ?? 0) : 0) as num;
+            productCount.update(nombre, (v) => v + 1, ifAbsent: () => 1);
+            productRevenue.update(nombre, (v) => v + precio.toDouble(), ifAbsent: () => precio.toDouble());
+          }
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resumen de Ventas',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildSummaryCard(
-                  'Completadas',
-                  completadas.toString(),
-                  Colors.green,
-                  Icons.check_circle,
-                ),
-                const SizedBox(width: 12),
-                _buildSummaryCard(
-                  'Ganancias',
-                  'S/ ${ganancias.toStringAsFixed(2)}',
-                  Colors.blue,
-                  Icons.monetization_on,
-                ),
-                const SizedBox(width: 12),
-                _buildSummaryCard(
-                  'Pendientes',
-                  pendientes.toString(),
-                  Colors.orange,
-                  Icons.pending,
-                ),
-                const SizedBox(width: 12),
-                _buildSummaryCard(
-                  'Canceladas',
-                  canceladas.toString(),
-                  Colors.grey,
-                  Icons.cancel,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Órdenes Recientes',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: docs.isEmpty
-                  ? const Center(child: Text('No hay ventas registradas'))
-                  : SingleChildScrollView(
-                      child: DataTable(
-                        headingRowHeight: 48,
-                        dataRowMinHeight: 48,
-                        dataRowMaxHeight: 64,
-                        columns: const [
-                          DataColumn(label: Text('Fecha')),
-                          DataColumn(label: Text('Usuario')),
-                          DataColumn(label: Text('Total'), numeric: true),
-                          DataColumn(label: Text('Estado')),
-                          DataColumn(label: Text('Prod.'), numeric: true),
-                          DataColumn(label: Text('Acción')),
-                        ],
-                        rows: docs.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final timestamp = data['fecha'] as Timestamp?;
-                          final fecha = timestamp?.toDate() ?? DateTime.now();
-                          final total =
-                              (data['total'] as num?)?.toDouble() ?? 0;
-                          final estado = data['estado'] as String? ?? '';
-                          final productos =
-                              (data['productos'] as List<dynamic>?) ?? [];
-                          final usuario =
-                              data['usuarioNombre'] as String? ??
-                              data['uid'] as String? ??
-                              '—';
+        final totalOrdenes = docs.length;
+        final promedio = totalOrdenes > 0 ? sumaTotales / totalOrdenes : 0.0;
 
-                          return DataRow(
-                            key: ValueKey(doc.id),
-                            cells: [
-                              DataCell(
-                                Text(
-                                  '${fecha.day}/${fecha.month}/${fecha.year}',
-                                ),
-                              ),
-                              DataCell(
-                                Text(usuario, overflow: TextOverflow.ellipsis),
-                              ),
-                              DataCell(Text('S/ ${total.toStringAsFixed(2)}')),
-                              DataCell(_buildStatusBadge(estado)),
-                              DataCell(Text('${productos.length}')),
-                              DataCell(
-                                IconButton(
+        final sortedProducts = productCount.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final top5 = sortedProducts.take(5).toList();
+        final bottom5 = sortedProducts.reversed.take(5).toList();
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resumen de Ventas',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildSummaryCard('Total Órdenes', '$totalOrdenes', Colors.indigo, Icons.receipt_long),
+                  _buildSummaryCard('Completadas', completadas.toString(), Colors.green, Icons.check_circle),
+                  _buildSummaryCard('Promedio/Orden', 'S/ ${promedio.toStringAsFixed(2)}', Colors.teal, Icons.trending_up),
+                  _buildSummaryCard('Órdenes Hoy', '$ordenesHoy', Colors.orange, Icons.today),
+                  _buildSummaryCard('Ingresos Hoy', 'S/ ${ingresosHoy.toStringAsFixed(2)}', Colors.blue, Icons.payments),
+                  _buildSummaryCard('Ganancias total', 'S/ ${ganancias.toStringAsFixed(2)}', Colors.green, Icons.account_balance_wallet),
+                  _buildSummaryCard('Pendientes', pendientes.toString(), Colors.orange, Icons.pending),
+                  _buildSummaryCard('Canceladas', canceladas.toString(), Colors.grey, Icons.cancel),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 320,
+                    child: _buildChartPie(completadas, pendientes, canceladas),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: SizedBox(
+                      height: 220,
+                      child: _buildChartBar(revenueByDay),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildProductRankTable('Top 5 más vendidos', top5, productRevenue),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: _buildProductRankTable('Top 5 menos vendidos', bottom5, productRevenue),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Órdenes Recientes',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              docs.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: Text('No hay ventas registradas')),
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Table(
+                        defaultColumnWidth: const FlexColumnWidth(),
+                        columnWidths: const {
+                          0: FlexColumnWidth(1.2),
+                          1: FlexColumnWidth(2),
+                          2: FlexColumnWidth(1.3),
+                          3: FlexColumnWidth(1.5),
+                          4: FlexColumnWidth(1),
+                          5: FlexColumnWidth(1),
+                        },
+                        border: TableBorder.all(color: Colors.grey.shade300, width: 0.5),
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: Colors.grey.shade100),
+                            children: [
+                              _tableHeader('Fecha'),
+                              _tableHeader('Usuario'),
+                              _tableHeader('Total'),
+                              _tableHeader('Estado'),
+                              _tableHeader('Prod.'),
+                              _tableHeader(''),
+                            ],
+                          ),
+                          ...docs.map((doc) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            final timestamp = data['fecha'] as Timestamp?;
+                            final fecha = timestamp?.toDate() ?? DateTime.now();
+                            final total = (data['total'] as num?)?.toDouble() ?? 0;
+                            final estado = data['estado'] as String? ?? '';
+                            final productos = (data['productos'] as List<dynamic>?) ?? [];
+                            final usuario = data['usuarioNombre'] as String? ?? data['uid'] as String? ?? '—';
+
+                            return TableRow(
+                              children: [
+                                _tableCell('${fecha.day}/${fecha.month}/${fecha.year}'),
+                                _tableCell(usuario, overflow: TextOverflow.ellipsis),
+                                _tableCell('S/ ${total.toStringAsFixed(2)}'),
+                                _tableCell('', child: _buildStatusBadge(estado)),
+                                _tableCell('${productos.length}'),
+                                _tableCell('', child: IconButton(
                                   icon: const Icon(Icons.visibility, size: 20),
                                   tooltip: 'Ver detalle',
                                   onPressed: () => _showOrderDetail(data),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                                )),
+                              ],
+                            );
+                          }),
+                        ],
                       ),
                     ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -695,34 +757,253 @@ class _AdminDashboardState extends State<AdminDashboard> {
     Color color,
     IconData icon,
   ) {
-    return Expanded(
-      child: Container(
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartPie(int completadas, int pendientes, int canceladas) {
+    final data = [
+      _PieChartData('Completadas', completadas.toDouble(), Colors.green),
+      _PieChartData('Pendientes', pendientes.toDouble(), Colors.orange),
+      _PieChartData('Canceladas', canceladas.toDouble(), Colors.grey),
+    ];
+    final total = completadas + pendientes + canceladas;
+
+    return Card(
+      child: Padding(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: color,
+            const Text('Distribución de estados',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 140,
+              child: PieChart(
+                PieChartData(
+                  sections: data.where((d) => d.value > 0).map((d) {
+                    final pct = total > 0 ? d.value / total * 100 : 0.0;
+                    return PieChartSectionData(
+                      value: d.value,
+                      color: d.color,
+                      title: '${pct.toStringAsFixed(0)}%',
+                      titleStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                      radius: 50,
+                    );
+                  }).toList(),
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 30,
+                ),
               ),
             ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            const SizedBox(height: 8),
+            ...data.map((d) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: _legendDot(d.label, d.value.toInt(), d.color),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _legendDot(String label, int count, Color color) {
+    return Row(
+      children: [
+        Container(
+            width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+        const SizedBox(width: 6),
+        Text('$label: $count', style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildChartBar(Map<String, double> revenueByDay) {
+    final entries = revenueByDay.entries.take(7).toList().reversed.toList();
+    if (entries.isEmpty) {
+      return const Center(child: Text('Sin datos de ingresos'));
+    }
+    final maxY = entries.fold<double>(0, (m, e) => e.value > m ? e.value : m);
+    final ceiling = maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100.0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Ingresos últimos 7 días',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: ceiling,
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          'S/ ${rod.toY.toStringAsFixed(0)}',
+                          const TextStyle(color: Colors.white, fontSize: 11),
+                        );
+                      },
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          if (value == 0) return const SizedBox();
+                          return Text(
+                            'S/${value.toInt()}',
+                            style: const TextStyle(fontSize: 9, color: Colors.grey),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= entries.length) return const SizedBox();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(entries[idx].key, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: entries.asMap().entries.map((e) {
+                    return BarChartGroupData(
+                      x: e.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: e.value.value,
+                          color: Colors.teal,
+                          width: 18,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProductRankTable(String title, List<MapEntry<String, int>> products, Map<String, double> revenue) {
+    if (products.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(1.5),
+              },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade100),
+                  children: [
+                    _tableHeader('Producto'),
+                    _tableHeader('Cant.'),
+                    _tableHeader('Total'),
+                  ],
+                ),
+                ...products.map((e) => TableRow(
+                  children: [
+                    _tableCell(e.key, overflow: TextOverflow.ellipsis),
+                    _tableCell('${e.value}'),
+                    _tableCell('S/ ${(revenue[e.key] ?? 0).toStringAsFixed(2)}'),
+                  ],
+                )),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tableHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    );
+  }
+
+  Widget _tableCell(String text, {TextOverflow overflow = TextOverflow.clip, Widget? child}) {
+    if (child != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: child,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Text(text, overflow: overflow, style: const TextStyle(fontSize: 13)),
     );
   }
 
@@ -778,6 +1059,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final usuario =
         data['usuarioNombre'] as String? ?? data['uid'] as String? ?? '—';
     final correo = data['usuarioCorreo'] as String? ?? '';
+    final telefono = data['telefono'] as String? ?? '';
+    final lat = (data['latitud'] as num?)?.toDouble();
+    final lng = (data['longitud'] as num?)?.toDouble();
+    final notas = data['notas'] as String? ?? '';
+    final lineaTiempo = data['lineaTiempo'] as List<dynamic>? ?? [];
 
     showDialog(
       context: context,
@@ -793,18 +1079,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
         content: SizedBox(
-          width: 480,
+          width: 520,
           child: ListView(
             shrinkWrap: true,
             children: [
-              _detailRow('Usuario', usuario),
+              _sectionHeader('Cliente'),
+              _detailRow('Nombre', usuario),
               if (correo.isNotEmpty) _detailRow('Correo', correo),
-              _detailRow('Dirección', direccion),
+              if (telefono.isNotEmpty) _detailRow('Teléfono', telefono),
               const SizedBox(height: 12),
-              const Text(
-                'Productos',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              _sectionHeader('Envío'),
+              _detailRow('Dirección', direccion),
+              if (notas.isNotEmpty) _detailRow('Notas', notas),
+              if (lat != null && lng != null) ...[
+                _detailRow('Coordenadas', '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.map, size: 16),
+                    label: const Text('Abrir Maps', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    ),
+                    onPressed: () => _openMap(lat, lng),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (lineaTiempo.isNotEmpty) ...[
+                _sectionHeader('Línea de tiempo'),
+                ...lineaTiempo.map((lt) {
+                  final ltMap = lt as Map<String, dynamic>;
+                  final ltEstado = ltMap['estado'] as String? ?? '';
+                  final ltFecha = (ltMap['fecha'] as Timestamp?)?.toDate();
+                  return _timelineRow(ltEstado, ltFecha);
+                }),
+                const SizedBox(height: 12),
+              ],
+              _sectionHeader('Productos'),
               const Divider(),
               ...productos.map((p) {
                 final pMap = p as Map<String, dynamic>;
@@ -818,24 +1130,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          nombre,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        child: Text(nombre, style: const TextStyle(fontSize: 13)),
                       ),
                       Text('x$cantidad', style: const TextStyle(fontSize: 12)),
                       const SizedBox(width: 8),
-                      Text(
-                        'S/ ${precio.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      Text('S/ ${precio.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12)),
                       const SizedBox(width: 8),
                       Text(
                         'S/ ${subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -845,16 +1148,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(
                     'S/ ${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
               ),
@@ -871,6 +1168,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _openMap(double lat, double lng) {
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _sectionHeader(String title) {
+    return Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+  }
+
+  Widget _timelineRow(String estado, DateTime? fecha) {
+    Color color;
+    switch (estado) {
+      case 'completado':
+        color = Colors.green;
+        break;
+      case 'preparando':
+        color = Colors.orange;
+        break;
+      case 'en_camino':
+        color = Colors.blue;
+        break;
+      case 'cancelado':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.grey;
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+          const SizedBox(width: 8),
+          Text(estado, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500)),
+          const Spacer(),
+          if (fecha != null)
+            Text(
+              '${fecha.day}/${fecha.month}/${fecha.year} ${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -879,10 +1221,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
+            child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
@@ -1141,92 +1480,89 @@ class _ProductTableState extends State<_ProductTable> {
               }
 
               return SingleChildScrollView(
-                child: DataTable(
-                  headingRowHeight: 48,
-                  dataRowMinHeight: 48,
-                  dataRowMaxHeight: 64,
-                  columns: const [
-                    DataColumn(label: Text('Imagen')),
-                    DataColumn(label: Text('Nombre')),
-                    DataColumn(label: Text('Marca')),
-                    DataColumn(label: Text('Categoría')),
-                    DataColumn(label: Text('Precio'), numeric: true),
-                    DataColumn(label: Text('Stock'), numeric: true),
-                    DataColumn(label: Text('Acciones')),
-                  ],
-                  rows: docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final imageUrl = data['imagen_url'] as String? ?? '';
-                    return DataRow(
-                      key: ValueKey(doc.id),
-                      cells: [
-                        DataCell(
-                          imageUrl.isNotEmpty
-                              ? _tableImage(imageUrl, 40, 40)
-                              : _tablePlaceholder(40, 40),
-                        ),
-                        DataCell(
-                          Text(
-                            data['nombre'] ?? '',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            _resolveName(
-                              widget.brands,
-                              data['marca'] as String?,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            _resolveName(
-                              widget.categories,
-                              data['categoria'] as String?,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            'S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}',
-                          ),
-                        ),
-                        DataCell(Text('${data['stock'] ?? 0}')),
-                        DataCell(
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                                tooltip: 'Editar',
-                                onPressed: () =>
-                                    widget.onEdit(product: data, id: doc.id),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 20,
-                                ),
-                                tooltip: 'Eliminar',
-                                onPressed: () => widget.onDelete(doc.id),
-                              ),
-                            ],
-                          ),
-                        ),
+                child: Table(
+                  defaultColumnWidth: const FlexColumnWidth(),
+                  columnWidths: const {
+                    0: FlexColumnWidth(0.8),
+                    1: FlexColumnWidth(2.0),
+                    2: FlexColumnWidth(1.5),
+                    3: FlexColumnWidth(1.5),
+                    4: FlexColumnWidth(1.2),
+                    5: FlexColumnWidth(0.8),
+                    6: FlexColumnWidth(1.2),
+                  },
+                  border: TableBorder.all(color: Colors.grey.shade300, width: 0.5),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: Colors.grey.shade100),
+                      children: [
+                        _th('Imagen'),
+                        _th('Nombre'),
+                        _th('Marca'),
+                        _th('Categoría'),
+                        _th('Precio'),
+                        _th('Stock'),
+                        _th('Acciones'),
                       ],
-                    );
-                  }).toList(),
+                    ),
+                    ...docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final imageUrl = data['imagen_url'] as String? ?? '';
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: imageUrl.isNotEmpty
+                                ? _tableImage(imageUrl, 40, 40)
+                                : _tablePlaceholder(40, 40),
+                          ),
+                          _tc(data['nombre'] ?? ''),
+                          _tc(_resolveName(widget.brands, data['marca'] as String?)),
+                          _tc(_resolveName(widget.categories, data['categoria'] as String?)),
+                          _tc('S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}'),
+                          _tc('${data['stock'] ?? 0}'),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                                  tooltip: 'Editar',
+                                  onPressed: () => widget.onEdit(product: data, id: doc.id),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                  tooltip: 'Eliminar',
+                                  onPressed: () => widget.onDelete(doc.id),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
                 ),
               );
             },
           ),
         ),
       ],
+    );
+  }
+
+  static Widget _th(String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    );
+  }
+
+  static Widget _tc(String text, {TextOverflow overflow = TextOverflow.ellipsis}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Text(text, overflow: overflow, style: const TextStyle(fontSize: 13)),
     );
   }
 
