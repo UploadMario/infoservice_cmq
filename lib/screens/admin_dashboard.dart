@@ -692,19 +692,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(child: Text('No hay ventas registradas')),
                     )
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Table(
-                        defaultColumnWidth: const FlexColumnWidth(),
-                        columnWidths: const {
-                          0: FlexColumnWidth(1.2),
-                          1: FlexColumnWidth(2),
-                          2: FlexColumnWidth(1.3),
-                          3: FlexColumnWidth(1.5),
-                          4: FlexColumnWidth(1),
-                          5: FlexColumnWidth(1),
-                        },
-                        border: TableBorder.all(color: Colors.grey.shade300, width: 0.5),
+                  : Table(
+                      defaultColumnWidth: const FlexColumnWidth(),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.2),
+                        1: FlexColumnWidth(2.5),
+                        2: FlexColumnWidth(1.3),
+                        3: FlexColumnWidth(1.5),
+                        4: FlexColumnWidth(0.8),
+                        5: FlexColumnWidth(0.8),
+                      },
+                      border: TableBorder.all(color: Colors.grey.shade300, width: 0.5),
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: Colors.grey.shade100),
@@ -743,8 +741,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           }),
                         ],
                       ),
-                    ),
-            ],
+              ],
           ),
         );
       },
