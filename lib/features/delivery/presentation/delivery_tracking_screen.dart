@@ -26,6 +26,7 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final MapController _mapController = MapController();
   Timer? _timer;
+  StreamSubscription? _orderSubscription;
 
   LatLng? _businessLocation;
   LatLng? _userLocation;
@@ -51,6 +52,7 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _orderSubscription?.cancel();
     _mapController.dispose();
     super.dispose();
   }
@@ -76,6 +78,21 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
     }
 
     _updateStatusDisplay();
+
+    _orderSubscription = _firestore
+        .collection('historial_compras')
+        .doc(widget.orderId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists || !mounted) return;
+      final data = snapshot.data()!;
+      setState(() {
+        _status = data['estado'] as String? ?? 'preparando';
+        _fechaPedido = data['fechaPedido'] as Timestamp?;
+        _fechaInicioEnvio = data['fechaInicioEnvio'] as Timestamp?;
+        _updateStatusDisplay();
+      });
+    });
 
     _timer = Timer.periodic(const Duration(seconds: 5), (_) => _tick());
   }
@@ -133,48 +150,29 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
   }
 
   void _tick() {
-    _updateStatusFromTime();
     _updateDeliveryPosition();
     _updateStatusDisplay();
     if (mounted) setState(() {});
-  }
 
-  void _updateStatusFromTime() {
-    if (_status == 'cancelado') return;
-
-    if (_status == 'preparando') {
-      if (_fechaPedido == null) return;
-      final elapsed = DateTime.now().difference(_fechaPedido!.toDate());
-      if (elapsed.inMinutes >= 5) {
-        _transitionTo('en_camino');
-      }
-      return;
-    }
-
-    if (_status == 'en_camino') {
-      if (_fechaInicioEnvio == null || _duration <= 0) return;
-      final elapsed = DateTime.now().difference(_fechaInicioEnvio!.toDate());
-      if (elapsed.inSeconds >= _duration.round()) {
-        _transitionTo('completado');
-      }
-      return;
+    if (_status == 'en_camino' && _progress >= 1.0) {
+      _status = 'completado';
+      _finalizeDelivery();
     }
   }
 
-  void _transitionTo(String newStatus) async {
-    _status = newStatus;
-    final updates = <String, dynamic>{'estado': newStatus};
-    if (newStatus == 'en_camino') {
-      updates['fechaInicioEnvio'] = FieldValue.serverTimestamp();
-      _fechaInicioEnvio = Timestamp.now();
-    } else if (newStatus == 'completado') {
-      updates['fechaCompletado'] = FieldValue.serverTimestamp();
-      _deliveryLocation = _userLocation;
+  Future<void> _finalizeDelivery() async {
+    final ahora = Timestamp.now();
+    try {
+      await _firestore.collection('historial_compras').doc(widget.orderId).update({
+        'estado': 'completado',
+        'fechaCompletado': FieldValue.serverTimestamp(),
+        'lineaTiempo': FieldValue.arrayUnion([
+          {'estado': 'completado', 'fecha': ahora},
+        ]),
+      });
+    } catch (e) {
+      debugPrint('Error al finalizar entrega: $e');
     }
-    await _firestore
-        .collection('historial_compras')
-        .doc(widget.orderId)
-        .update(updates);
   }
 
   void _updateDeliveryPosition() {

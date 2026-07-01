@@ -734,7 +734,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 _tableCell('', child: IconButton(
                                   icon: const Icon(Icons.visibility, size: 20),
                                   tooltip: 'Ver detalle',
-                                  onPressed: () => _showOrderDetail(data),
+                                   onPressed: () => _showOrderDetail(data, doc.id),
                                 )),
                               ],
                             );
@@ -1046,7 +1046,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _showOrderDetail(Map<String, dynamic> data) {
+  void _showOrderDetail(Map<String, dynamic> data, String docId) {
     final timestamp = data['fecha'] as Timestamp?;
     final fecha = timestamp?.toDate() ?? DateTime.now();
     final estado = data['estado'] as String? ?? '';
@@ -1156,6 +1156,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
         actions: [
+          if (estado == 'preparando')
+            ElevatedButton.icon(
+              icon: const Icon(Icons.local_shipping, size: 18),
+              label: const Text('Marcar como En Camino'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              onPressed: () async {
+                final ahora = Timestamp.now();
+                await _firestore.collection('historial_compras').doc(docId).update({
+                  'estado': 'en_camino',
+                  'fechaInicioEnvio': FieldValue.serverTimestamp(),
+                  'lineaTiempo': FieldValue.arrayUnion([
+                    {'estado': 'en_camino', 'fecha': ahora},
+                  ]),
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cerrar'),
@@ -1517,7 +1536,17 @@ class _ProductTableState extends State<_ProductTable> {
                           _tc(_resolveName(widget.brands, data['marca'] as String?)),
                           _tc(_resolveName(widget.categories, data['categoria'] as String?)),
                           _tc('S/ ${(data['precio'] ?? 0).toStringAsFixed(2)}'),
-                          _tc('${data['stock'] ?? 0}'),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            child: Text(
+                              '${data['stock'] ?? 0}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: (data['stock'] ?? 0) <= 3 ? Colors.red : null,
+                                fontWeight: (data['stock'] ?? 0) <= 3 ? FontWeight.bold : null,
+                              ),
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 2),
                             child: Row(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:infoservice_cmq/features/products/data/product_service.dart';
 import 'package:infoservice_cmq/features/products/data/models/product_model.dart';
+import 'package:infoservice_cmq/features/products/data/recommendation_service.dart';
 import 'package:infoservice_cmq/features/cart/data/cart_service.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_badge_icon.dart';
 import 'package:infoservice_cmq/features/cart/presentation/cart_screen.dart';
@@ -19,6 +20,7 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final ProductService _productService = ProductService();
+  final RecommendationService _recommendationService = RecommendationService();
   final FavoritesService _favorites = FavoritesService.instance;
   List<ProductModel> _products = [];
   List<ProductModel> _filteredProducts = [];
@@ -109,6 +111,224 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+  void _showProductDetail(ProductModel product) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (ctx, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40, height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        children: [
+                          AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: product.imageUrl.isNotEmpty
+                                ? _detailImage(product.imageUrl)
+                                : _storePlaceholder(),
+                          ),
+                          if (product.stock <= 0)
+                            Positioned.fill(
+                              child: Container(
+                                color: Colors.black54,
+                                child: const Center(
+                                  child: Text('AGOTADO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    )),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(product.name,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text('S/ ${product.price.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text('Stock: ${product.stock}',
+                          style: TextStyle(fontSize: 14, color: product.stock > 0 ? Colors.grey : Colors.red),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        if (product.categoryName.isNotEmpty)
+                          _detailChip(product.categoryName, Colors.blue),
+                        if (product.brandName.isNotEmpty)
+                          _detailChip(product.brandName, Colors.orange),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.add_shopping_cart),
+                        label: const Text('Agregar al carrito'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: product.stock > 0
+                            ? () {
+                                _addToCart(product);
+                                Navigator.pop(ctx);
+                              }
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FutureBuilder<List<ProductModel>>(
+                      future: _recommendationService.getRelatedProducts(product.id),
+                      builder: (ctx, snapshot) {
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        final related = snapshot.data!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Quienes compraron esto también llevaron',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 160,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: related.length,
+                                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                                itemBuilder: (_, i) {
+                                  final r = related[i];
+                                  return GestureDetector(
+                                    onTap: () {
+                                      _addToCart(r);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('"${r.name}" agregado al carrito')),
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 120,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.grey.shade200),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                            child: SizedBox(
+                                              height: 80,
+                                              width: double.infinity,
+                                              child: r.imageUrl.isNotEmpty
+                                                  ? _detailImage(r.imageUrl)
+                                                  : _storePlaceholder(),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(6),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(r.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text('S/ ${r.price.toStringAsFixed(2)}',
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+        ],
+        ),
+      ),
+    );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _detailImage(String url) {
+    if (url.startsWith('data:')) {
+      try {
+        final parts = url.split(',');
+        if (parts.length >= 2) {
+          return Image.memory(base64Decode(parts[1]), fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, e, s) => _storePlaceholder());
+        }
+      } catch (_) {}
+    }
+    return Image.network(url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, e, s) => _storePlaceholder());
+  }
+
+  Widget _storePlaceholder() {
+    return const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 32));
+  }
+
+  Widget _detailChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+    );
+  }
+
   void _openCart() {
     Navigator.push(
       context,
@@ -191,6 +411,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       return _ProductCard(
                         product: product,
                         isFavorite: _favorites.isFavorite(product.id),
+                        onTap: () => _showProductDetail(product),
                         onToggleFavorite: () =>
                             _favorites.toggle(product.id),
                         onAddToCart: () => _addToCart(product),
@@ -392,12 +613,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
   final bool isFavorite;
+  final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
   final VoidCallback onAddToCart;
 
   const _ProductCard({
     required this.product,
     required this.isFavorite,
+    required this.onTap,
     required this.onToggleFavorite,
     required this.onAddToCart,
   });
@@ -408,9 +631,11 @@ class _ProductCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           AspectRatio(
             aspectRatio: 16 / 9,
             child: Stack(
@@ -521,6 +746,7 @@ class _ProductCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

@@ -4,6 +4,8 @@ import '../../../widgets/custom_app_bar.dart';
 import '../data/cart_service.dart';
 import '../data/models/cart_item_model.dart';
 import 'location_picker_screen.dart';
+import '../../products/data/recommendation_service.dart';
+import '../../products/data/models/product_model.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -14,12 +16,15 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final CartService _cart = CartService.instance;
+  final RecommendationService _recommendationService = RecommendationService();
+  List<ProductModel> _related = [];
   bool _isPurchasing = false;
 
   @override
   void initState() {
     super.initState();
     _cart.addListener(_onCartChanged);
+    _loadRelated();
   }
 
   @override
@@ -30,6 +35,18 @@ class _CartScreenState extends State<CartScreen> {
 
   void _onCartChanged() {
     if (mounted) setState(() {});
+    _loadRelated();
+  }
+
+  Future<void> _loadRelated() async {
+    if (_cart.items.isEmpty) {
+      if (_related.isNotEmpty) setState(() => _related = []);
+      return;
+    }
+    final firstId = _cart.items.first.product.id;
+    final related = await _recommendationService.getRelatedProducts(firstId, limit: 5);
+    if (!mounted) return;
+    setState(() => _related = related);
   }
 
   Future<void> _purchase() async {
@@ -182,27 +199,108 @@ class _CartScreenState extends State<CartScreen> {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    itemCount: _cart.items.length,
+                    itemCount: _cart.items.length + (_related.isNotEmpty ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final item = _cart.items[index];
-                      return _CartItemCard(
-                        item: item,
-                        onIncrement: () {
-                          _cart.updateQuantity(
-                              item.product.id, item.quantity + 1);
-                        },
-                        onDecrement: () {
-                          _cart.updateQuantity(
-                              item.product.id, item.quantity - 1);
-                        },
-                        onRemove: () => _cart.removeItem(item.product.id),
-                      );
+                      if (index < _cart.items.length) {
+                        final item = _cart.items[index];
+                        return _CartItemCard(
+                          item: item,
+                          onIncrement: () {
+                            _cart.updateQuantity(
+                                item.product.id, item.quantity + 1);
+                          },
+                          onDecrement: () {
+                            _cart.updateQuantity(
+                                item.product.id, item.quantity - 1);
+                          },
+                          onRemove: () => _cart.removeItem(item.product.id),
+                        );
+                      }
+                      return _buildRelatedSection();
                     },
                   ),
                 ),
                 _buildBottomBar(),
               ],
             ),
+    );
+  }
+
+  Widget _buildRelatedSection() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text('Quienes compraron esto también llevaron',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _related.length,
+              itemBuilder: (_, i) {
+                final p = _related[i];
+                return GestureDetector(
+                  onTap: () {
+                    final error = _cart.addItem(p);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(error ?? '"${p.name}" agregado al carrito')),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 100,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                          child: SizedBox(
+                            height: 60, width: double.infinity,
+                            child: p.imageUrl.isNotEmpty
+                                ? Image.network(p.imageUrl, fit: BoxFit.cover, errorBuilder: (_, e, s) => const Icon(Icons.image_outlined, color: Colors.grey))
+                                : const Icon(Icons.image_outlined, color: Colors.grey),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 1),
+                              Text('S/ ${p.price.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

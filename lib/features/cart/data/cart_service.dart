@@ -113,6 +113,13 @@ class CartService extends ChangeNotifier {
     final docRef =
         await _firestore.collection('historial_compras').add(compraData);
 
+    final batch = _firestore.batch();
+    for (final item in _items) {
+      final ref = _firestore.collection('productos').doc(item.product.id);
+      batch.update(ref, {'stock': FieldValue.increment(-item.quantity)});
+    }
+    await batch.commit();
+
     final result = <String, dynamic>{
       'id': docRef.id,
       'productos': productosData,
@@ -126,9 +133,23 @@ class CartService extends ChangeNotifier {
   }
 
   Future<void> cancelOrder(String orderId) async {
-    await _firestore.collection('historial_compras').doc(orderId).update({
-      'estado': 'cancelado',
-    });
+    final orderDoc = await _firestore.collection('historial_compras').doc(orderId).get();
+    final data = orderDoc.data();
+    final productos = (data?['productos'] as List<dynamic>?) ?? [];
+
+    final batch = _firestore.batch();
+    batch.update(orderDoc.reference, {'estado': 'cancelado'});
+    for (final p in productos) {
+      final pMap = p as Map<String, dynamic>;
+      final id = pMap['productoId'] as String?;
+      final cant = (pMap['cantidad'] as num?)?.toInt() ?? 0;
+      if (id != null && cant > 0) {
+        batch.update(_firestore.collection('productos').doc(id), {
+          'stock': FieldValue.increment(cant),
+        });
+      }
+    }
+    await batch.commit();
   }
 
   Stream<QuerySnapshot> getPurchaseHistory() {
