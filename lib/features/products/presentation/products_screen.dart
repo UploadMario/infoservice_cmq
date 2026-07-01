@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:infoservice_cmq/features/products/data/product_service.dart';
 import 'package:infoservice_cmq/features/products/data/models/product_model.dart';
@@ -417,12 +418,7 @@ class _ProductCard extends StatelessWidget {
                 Container(
                   color: Colors.grey[200],
                   child: product.imageUrl.isNotEmpty
-                      ? Image.network(
-                          product.imageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (_, e, s) => _imagePlaceholder(),
-                        )
+                      ? _productImage(product.imageUrl)
                       : _imagePlaceholder(),
                 ),
                 Positioned(
@@ -526,6 +522,28 @@ class _ProductCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _productImage(String url) {
+    if (url.startsWith('data:')) {
+      try {
+        final parts = url.split(',');
+        if (parts.length >= 2) {
+          return Image.memory(
+            base64Decode(parts[1]),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (_, e, s) => _imagePlaceholder(),
+          );
+        }
+      } catch (_) {}
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorBuilder: (_, e, s) => _imagePlaceholder(),
     );
   }
 

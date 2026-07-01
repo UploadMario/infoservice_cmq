@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -128,6 +131,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) {
+        bool isUploading = false;
+        double uploadProgress = 0;
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
@@ -153,34 +158,95 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             : null,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _imageUrlController,
-                        decoration: const InputDecoration(
-                          labelText: 'URL de imagen',
-                          prefixIcon: Icon(Icons.image_outlined),
-                        ),
-                        keyboardType: TextInputType.url,
-                        onChanged: (_) => setDialogState(() {}),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _imageUrlController,
+                              decoration: const InputDecoration(
+                                labelText: 'URL de imagen',
+                                prefixIcon: Icon(Icons.image_outlined),
+                                isDense: true,
+                              ),
+                              keyboardType: TextInputType.url,
+                              onChanged: (_) => setDialogState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: isUploading
+                                ? null
+                                : () async {
+                                    final result =
+                                        await FilePicker.platform.pickFiles(
+                                      type: FileType.image,
+                                    );
+                                    if (result == null ||
+                                        result.files.isEmpty) return;
+                                    final file = result.files.first;
+                                    if (file.bytes == null) return;
+                                    setDialogState(
+                                        () => isUploading = true);
+                                    try {
+                                      final original =
+                                          img.decodeImage(file.bytes!);
+                                      if (original != null) {
+                                        final resized = img.copyResize(
+                                            original,
+                                            width: 800);
+                                        final jpeg = img.encodeJpg(
+                                            resized,
+                                            quality: 70);
+                                        final b64 = base64Encode(jpeg);
+                                        _imageUrlController.text =
+                                            'data:image/jpeg;base64,$b64';
+                                      }
+                                      setDialogState(() {
+                                        isUploading = false;
+                                        uploadProgress = 0;
+                                      });
+                                    } catch (e) {
+                                      setDialogState(() {
+                                        isUploading = false;
+                                        uploadProgress = 0;
+                                      });
+                                      if (ctx.mounted) {
+                                        ScaffoldMessenger.of(ctx)
+                                            .showSnackBar(SnackBar(
+                                          content: Text(
+                                              'Error al procesar imagen: $e'),
+                                        ));
+                                      }
+                                    }
+                                  },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isUploading
+                                      ? Icons.hourglass_top
+                                      : Icons.upload_file,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                    isUploading ? 'Subiendo...' : 'Subir'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
+                      if (isUploading) ...[
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(value: uploadProgress),
+                      ],
                       if (_imageUrlController.text.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
+                          child: _buildImageWidget(
                             _imageUrlController.text,
                             height: 100,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, e, s) => Container(
-                              height: 100,
-                              color: Colors.grey[200],
-                              child: const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -823,6 +889,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
+
+  Widget _buildImageWidget(String url, {double? height, double? width}) {
+    final isDataUri = url.startsWith('data:');
+    final w = width ?? double.infinity;
+    final h = height ?? 100;
+    if (isDataUri) {
+      try {
+        final parts = url.split(',');
+        if (parts.length < 2) return _imagePlaceholder();
+        final bytes = base64Decode(parts[1]);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            bytes,
+            height: h,
+            width: w,
+            fit: BoxFit.cover,
+            errorBuilder: (_, e, s) => _imagePlaceholder(),
+          ),
+        );
+      } catch (_) {
+        return _imagePlaceholder();
+      }
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        height: h,
+        width: w,
+        fit: BoxFit.cover,
+        errorBuilder: (_, e, s) => _imagePlaceholder(),
+      ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return Container(
+      height: 100,
+      color: Colors.grey[200],
+      child: const Center(
+        child: Icon(Icons.broken_image, color: Colors.grey),
+      ),
+    );
+  }
 }
 
 class _ProductTable extends StatefulWidget {
@@ -1051,33 +1162,8 @@ class _ProductTableState extends State<_ProductTable> {
                       cells: [
                         DataCell(
                           imageUrl.isNotEmpty
-                              ? Image.network(
-                                  imageUrl,
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 80,
-                                  errorBuilder: (_, e, s) => Container(
-                                    width: 40,
-                                    height: 40,
-                                    color: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.image,
-                                      size: 20,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  width: 40,
-                                  height: 40,
-                                  color: Colors.grey[200],
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 20,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                              ? _tableImage(imageUrl, 40, 40)
+                              : _tablePlaceholder(40, 40),
                         ),
                         DataCell(
                           Text(
@@ -1141,6 +1227,40 @@ class _ProductTableState extends State<_ProductTable> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _tableImage(String url, double w, double h) {
+    if (url.startsWith('data:')) {
+      try {
+        final parts = url.split(',');
+        if (parts.length >= 2) {
+          return Image.memory(
+            base64Decode(parts[1]),
+            width: w,
+            height: h,
+            fit: BoxFit.cover,
+            errorBuilder: (_, e, s) => _tablePlaceholder(w, h),
+          );
+        }
+      } catch (_) {}
+    }
+    return Image.network(
+      url,
+      width: w,
+      height: h,
+      fit: BoxFit.cover,
+      cacheWidth: 80,
+      errorBuilder: (_, e, s) => _tablePlaceholder(w, h),
+    );
+  }
+
+  Widget _tablePlaceholder(double w, double h) {
+    return Container(
+      width: w,
+      height: h,
+      color: Colors.grey[200],
+      child: const Icon(Icons.image, size: 20, color: Colors.grey),
     );
   }
 }
