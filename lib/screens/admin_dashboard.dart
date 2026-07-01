@@ -614,7 +614,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           final productos = data['productos'] as List<dynamic>? ?? [];
           for (final p in productos) {
             final nombre = (p is Map ? p['nombre'] ?? p['name'] : null) as String? ?? 'Producto';
-            final precio = (p is Map ? (p['precio'] ?? p['price'] ?? 0) : 0) as num;
+            final precio = (p is Map ? (p['subtotal'] ?? p['precioUnitario'] ?? p['precio'] ?? 0) : 0) as num;
             productCount.update(nombre, (v) => v + 1, ifAbsent: () => 1);
             productRevenue.update(nombre, (v) => v + precio.toDouble(), ifAbsent: () => precio.toDouble());
           }
