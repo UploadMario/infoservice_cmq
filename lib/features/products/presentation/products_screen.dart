@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:infoservice_cmq/features/products/data/product_service.dart';
@@ -31,38 +30,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
   bool _showFavoritesOnly = false;
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  StreamSubscription? _subscription;
 
   @override
   void initState() {
     super.initState();
     _favorites.init();
     _favorites.addListener(_onFavoritesChanged);
-    _subscription = _productService.getProducts().listen(
-      (products) {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _products = products;
-          _filteredProducts = products;
-          _applyFilters();
-        });
-      },
-      onError: (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar productos: $error')),
-        );
-      },
-    );
+    _loadProducts();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
     _favorites.removeListener(_onFavoritesChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final products = await _productService.getProducts();
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _products = products;
+        _filteredProducts = products;
+        _applyFilters();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar productos: $e')),
+      );
+    }
   }
 
   void _onFavoritesChanged() {
@@ -310,7 +310,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         }
       } catch (_) {}
     }
-    return Image.network(url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, e, s) => _storePlaceholder());
+    return Image.network(url, cacheWidth: 300, fit: BoxFit.cover, width: double.infinity, loadingBuilder: (ctx, child, progress) => progress == null ? child : Container(color: Colors.grey[200]), errorBuilder: (_, e, s) => _storePlaceholder());
   }
 
   Widget _storePlaceholder() {
@@ -767,8 +767,10 @@ class _ProductCard extends StatelessWidget {
     }
     return Image.network(
       url,
+      cacheWidth: 120,
       fit: BoxFit.cover,
       width: double.infinity,
+      loadingBuilder: (ctx, child, progress) => progress == null ? child : Container(color: Colors.grey[200]),
       errorBuilder: (_, e, s) => _imagePlaceholder(),
     );
   }

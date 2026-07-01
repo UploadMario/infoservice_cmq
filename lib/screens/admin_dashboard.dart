@@ -1274,6 +1274,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         url,
         height: h,
         width: w,
+        cacheWidth: w.toInt(),
         fit: BoxFit.cover,
         errorBuilder: (_, e, s) => _imagePlaceholder(),
       ),

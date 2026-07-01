@@ -13,10 +13,13 @@ class FavoritesService extends ChangeNotifier {
   final Set<String> _favoriteIds = {};
   StreamSubscription? _sub;
   StreamSubscription? _authSub;
+  bool _initialized = false;
 
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
 
   void init() {
+    if (_initialized) return;
+    _initialized = true;
     _authSub?.cancel();
     _sub?.cancel();
     _favoriteIds.clear();

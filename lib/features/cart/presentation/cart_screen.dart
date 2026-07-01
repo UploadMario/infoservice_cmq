@@ -19,6 +19,7 @@ class _CartScreenState extends State<CartScreen> {
   final RecommendationService _recommendationService = RecommendationService();
   List<ProductModel> _related = [];
   bool _isPurchasing = false;
+  bool _loadingRelated = false;
 
   @override
   void initState() {
@@ -34,19 +35,27 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _onCartChanged() {
-    if (mounted) setState(() {});
     _loadRelated();
   }
 
   Future<void> _loadRelated() async {
+    if (_loadingRelated) return;
     if (_cart.items.isEmpty) {
       if (_related.isNotEmpty) setState(() => _related = []);
       return;
     }
-    final firstId = _cart.items.first.product.id;
-    final related = await _recommendationService.getRelatedProducts(firstId, limit: 5);
-    if (!mounted) return;
-    setState(() => _related = related);
+    _loadingRelated = true;
+    try {
+      final firstId = _cart.items.first.product.id;
+      final related = await _recommendationService.getRelatedProducts(firstId, limit: 5);
+      if (!mounted) return;
+      setState(() => _related = related);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _related = []);
+    } finally {
+      _loadingRelated = false;
+    }
   }
 
   Future<void> _purchase() async {
@@ -273,7 +282,7 @@ class _CartScreenState extends State<CartScreen> {
                           child: SizedBox(
                             height: 60, width: double.infinity,
                             child: p.imageUrl.isNotEmpty
-                                ? Image.network(p.imageUrl, fit: BoxFit.cover, errorBuilder: (_, e, s) => const Icon(Icons.image_outlined, color: Colors.grey))
+                                ? Image.network(p.imageUrl, cacheWidth: 150, fit: BoxFit.cover, errorBuilder: (_, e, s) => const Icon(Icons.image_outlined, color: Colors.grey))
                                 : const Icon(Icons.image_outlined, color: Colors.grey),
                           ),
                         ),
@@ -396,6 +405,7 @@ class _CartItemCard extends StatelessWidget {
                 child: item.product.imageUrl.isNotEmpty
                     ? Image.network(
                         item.product.imageUrl,
+                        cacheWidth: 64,
                         fit: BoxFit.cover,
                         errorBuilder: (_, e, s) => const Icon(
                             Icons.image_outlined, color: Colors.grey),

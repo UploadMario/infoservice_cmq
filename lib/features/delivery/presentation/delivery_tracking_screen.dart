@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:infoservice_cmq/widgets/custom_app_bar.dart';
@@ -150,9 +151,13 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
   }
 
   void _tick() {
+    final oldProgress = _progress;
+    final oldStatus = _status;
     _updateDeliveryPosition();
     _updateStatusDisplay();
-    if (mounted) setState(() {});
+    if (_progress != oldProgress || _status != oldStatus) {
+      if (mounted) setState(() {});
+    }
 
     if (_status == 'en_camino' && _progress >= 1.0) {
       _status = 'completado';
@@ -353,7 +358,7 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.infoservice.cmq',
-          tileProvider: NetworkTileProvider(),
+           tileProvider: CancellableNetworkTileProvider(),
         ),
         MarkerLayer(
           markers: [
